@@ -2,14 +2,14 @@
 title: Integrating { PRODUCT NAME } With Great Expectations
 authors:
     name: AUTHOR NAME
-    url: https://superconductive.com
+    url: https://superurl.com
 ---
 
 :::info
-* Maintained By: Super Conductive
+* Maintained By: Company Name
 * Status: Alpha | Beta | Production/Mature
 * Testing: https://URL-to-CI-If-Public.io (otherwise remove)
-* Support/Contact: https://superconductive.com
+* Support/Contact: https://yoururl.com
 :::
 
 ### Introduction
