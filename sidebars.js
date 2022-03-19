@@ -311,6 +311,7 @@ module.exports = {
       type: 'category',
       label: 'Integrations',
       items: [
+        'integrations/contributing_integration',
         'integrations/integration_template',
         { type: 'doc', id: 'integrations/index', label: 'Index' }
       ]

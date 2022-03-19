@@ -1,5 +1,5 @@
 ---
-title: Integrating { PRODUCT NAME } With Great Expectations
+title: (Template) Integrating { PRODUCT NAME } With Great Expectations
 authors:
     name: AUTHOR NAME
     url: https://superurl.com
