@@ -131,10 +131,10 @@ class ConfigurationStore(Store):
         )
 
         report_object["len_keys"] = len(report_object["keys"])
-        len_keys: int = report_object["len_keys"]
-
         if pretty_print:
-            if report_object["len_keys"] == 0:
+            len_keys: int = report_object["len_keys"]
+
+            if len_keys == 0:
                 print(f"\t{len_keys} keys found")
             else:
                 print(f"\t{len_keys} keys found:")
@@ -160,9 +160,8 @@ class ConfigurationStore(Store):
         ), "Must provide either name or ge_cloud_id."
 
         key: Union[GeCloudIdentifier, ConfigurationIdentifier]
-        if ge_cloud_id:
-            key = GeCloudIdentifier(resource_type="contract", ge_cloud_id=ge_cloud_id)
-        else:
-            key = ConfigurationIdentifier(configuration_key=name)
-
-        return key
+        return (
+            GeCloudIdentifier(resource_type="contract", ge_cloud_id=ge_cloud_id)
+            if ge_cloud_id
+            else ConfigurationIdentifier(configuration_key=name)
+        )

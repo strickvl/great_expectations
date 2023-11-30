@@ -100,9 +100,7 @@ class Store:
 
     @property
     def key_class(self):
-        if self.ge_cloud_mode:
-            return GeCloudIdentifier
-        return self._key_class
+        return GeCloudIdentifier if self.ge_cloud_mode else self._key_class
 
     @property
     def store_backend_id_warnings_suppressed(self):
@@ -147,35 +145,30 @@ class Store:
             self._validate_key(key)
             value = self._store_backend.get(self.key_to_tuple(key))
 
-        if value:
-            return self.deserialize(key, value)
-        else:
-            return None
+        return self.deserialize(key, value) if value else None
 
     def set(self, key, value, **kwargs):
         if key == StoreBackend.STORE_BACKEND_ID_KEY:
             return self._store_backend.set(key, value, **kwargs)
-        else:
-            self._validate_key(key)
-            return self._store_backend.set(
-                self.key_to_tuple(key), self.serialize(key, value), **kwargs
-            )
+        self._validate_key(key)
+        return self._store_backend.set(
+            self.key_to_tuple(key), self.serialize(key, value), **kwargs
+        )
 
     def list_keys(self):
         keys_without_store_backend_id = [
             key
             for key in self._store_backend.list_keys()
-            if not key == StoreBackend.STORE_BACKEND_ID_KEY
+            if key != StoreBackend.STORE_BACKEND_ID_KEY
         ]
         return [self.tuple_to_key(key) for key in keys_without_store_backend_id]
 
     def has_key(self, key):
         if key == StoreBackend.STORE_BACKEND_ID_KEY:
             return self._store_backend.has_key(key)
-        else:
-            if self._use_fixed_length_key:
-                return self._store_backend.has_key(key.to_fixed_length_tuple())
-            return self._store_backend.has_key(key.to_tuple())
+        if self._use_fixed_length_key:
+            return self._store_backend.has_key(key.to_fixed_length_tuple())
+        return self._store_backend.has_key(key.to_tuple())
 
     def self_check(self, pretty_print):
         NotImplementedError(

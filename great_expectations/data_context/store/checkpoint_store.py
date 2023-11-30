@@ -43,7 +43,7 @@ class CheckpointStore(ConfigurationStore):
 
     def serialization_self_check(self, pretty_print: bool):
         test_checkpoint_name: str = "test-name-" + "".join(
-            [random.choice(list("0123456789ABCDEF")) for i in range(20)]
+            [random.choice(list("0123456789ABCDEF")) for _ in range(20)]
         )
         test_checkpoint_configuration: CheckpointConfig = CheckpointConfig(
             **{"name": test_checkpoint_name}
@@ -95,9 +95,7 @@ class CheckpointStore(ConfigurationStore):
 
     def list_checkpoints(self, ge_cloud_mode: bool) -> List[str]:
         keys: Union[List[str], List[ConfigurationIdentifier]] = self.list_keys()
-        if ge_cloud_mode:
-            return keys
-        return [k.configuration_key for k in keys]
+        return keys if ge_cloud_mode else [k.configuration_key for k in keys]
 
     def delete_checkpoint(
         self,

@@ -313,13 +313,9 @@ class BaseDatasource:
         data_connector: DataConnector = self.data_connectors[
             batch_request.data_connector_name
         ]
-        batch_definition_list = (
-            data_connector.get_batch_definition_list_from_batch_request(
-                batch_request=batch_request
-            )
+        return data_connector.get_batch_definition_list_from_batch_request(
+            batch_request=batch_request
         )
-
-        return batch_definition_list
 
     def self_check(self, pretty_print=True, max_examples=3):
         # Provide visibility into parameters that ExecutionEngine was instantiated with.
@@ -333,8 +329,7 @@ class BaseDatasource:
         if pretty_print:
             print("Data Connectors:")
 
-        data_connector_list = list(self.data_connectors.keys())
-        data_connector_list.sort()
+        data_connector_list = sorted(self.data_connectors.keys())
         report_object["data_connectors"] = {"count": len(data_connector_list)}
 
         for data_connector_name in data_connector_list:

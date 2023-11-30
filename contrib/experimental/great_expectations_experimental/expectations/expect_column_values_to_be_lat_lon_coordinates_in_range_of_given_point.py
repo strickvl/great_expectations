@@ -136,9 +136,7 @@ def fcc_projection(loc1, loc2):
         + (0.00012 * cos(5 * mean_lat))
     )
 
-    distance = sqrt((k1 * delta_lat) ** 2 + (k2 * delta_lon) ** 2)
-
-    return distance
+    return sqrt((k1 * delta_lat) ** 2 + (k2 * delta_lon) ** 2)
 
 
 def pythagorean_projection(loc1, loc2):
@@ -160,9 +158,7 @@ def pythagorean_projection(loc1, loc2):
 
     radius = 6371.009
 
-    distance = radius * sqrt((delta_lat**2) + (cos(mean_lat) * delta_lon) ** 2)
-
-    return distance
+    return radius * sqrt((delta_lat**2) + (cos(mean_lat) * delta_lon) ** 2)
 
 
 # This class defines the Expectation itself
@@ -250,9 +246,7 @@ class ExpectColumnValuesToBeLatLonCoordinatesInRangeOfGivenPoint(ColumnMapExpect
             assert (
                 center_point is not None and range is not None
             ), "center_point and range must be specified"
-            assert (
-                isinstance(center_point, tuple) or isinstance(center_point, list)
-            ) and all(
+            assert (isinstance(center_point, (tuple, list))) and all(
                 isinstance(n, float) for n in center_point
             ), "center_point must be a tuple or list of lat/lon floats"
             assert (center_point[0] >= -90 and center_point[0] <= 90) and (

@@ -120,23 +120,17 @@ class GreatExpectationsContribPackageManifest(SerializableDictDot):
             logger.warning(f"{path} is empty so exiting early")
             return
 
-        # Assign general attrs
-        general = data.get("general")
-        if general:
+        if general := data.get("general"):
             for attr in ("package_name", "icon", "description"):
                 self[attr] = general.get(attr)
 
-        # Assign code owners
-        code_owners = data.get("code_owners")
-        if code_owners:
+        if code_owners := data.get("code_owners"):
             self.code_owners = []
             for owner in code_owners:
                 code_owner = GitHubUser(**owner)
                 self.code_owners.append(code_owner)
 
-        # Assign domain experts
-        domain_experts = data.get("domain_experts")
-        if domain_experts:
+        if domain_experts := data.get("domain_experts"):
             self.domain_experts = []
             for expert in domain_experts:
                 domain_expert = DomainExpert(**expert)
@@ -168,19 +162,16 @@ class GreatExpectationsContribPackageManifest(SerializableDictDot):
             return
 
         with open(path) as f:
-            requirements = [req for req in pkg_resources.parse_requirements(f)]
+            requirements = list(pkg_resources.parse_requirements(f))
 
         def _convert_to_dependency(
-            requirement: pkg_resources.Requirement,
-        ) -> Dependency:
+                requirement: pkg_resources.Requirement,
+            ) -> Dependency:
             name = requirement.project_name
             pypi_url = f"https://pypi.org/project/{name}"
             if requirement.specs:
                 # Stringify tuple of pins
-                version = ", ".join(
-                    "".join(symbol for symbol in pin)
-                    for pin in sorted(requirement.specs)
-                )
+                version = ", ".join("".join(pin) for pin in sorted(requirement.specs))
             else:
                 version = None
             return Dependency(text=name, link=pypi_url, version=version)
@@ -210,10 +201,9 @@ class GreatExpectationsContribPackageManifest(SerializableDictDot):
             expectations = GreatExpectationsContribPackageManifest._retrieve_expectations_from_module(
                 expectations_module
             )
-            diagnostics = GreatExpectationsContribPackageManifest._gather_diagnostics(
+            return GreatExpectationsContribPackageManifest._gather_diagnostics(
                 expectations
             )
-            return diagnostics
         except Exception as e:
             # Exceptions should not break the CLI - this behavior should be working in the background
             # without the user being concerned about the underlying functionality
@@ -230,7 +220,7 @@ class GreatExpectationsContribPackageManifest(SerializableDictDot):
         ]
 
         # A sanity check in case the user modifies the Cookiecutter template in unexpected ways
-        if len(packages) == 0:
+        if not packages:
             raise FileNotFoundError("Could not find a user-defined package")
         elif len(packages) > 1:
             raise ValueError("Found more than one user-defined package")
@@ -243,8 +233,7 @@ class GreatExpectationsContribPackageManifest(SerializableDictDot):
         cwd = os.getcwd()
         sys.path.append(cwd)
         try:
-            expectations_module = importlib.import_module(f"{package}.expectations")
-            return expectations_module
+            return importlib.import_module(f"{package}.expectations")
         except ModuleNotFoundError:
             raise
 

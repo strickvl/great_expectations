@@ -165,8 +165,7 @@ class DatabaseStoreBackend(StoreBackend):
         drivername = credentials.pop("drivername")
         create_engine_kwargs = kwargs
         self._schema_name = credentials.pop("schema", None)
-        connect_args = credentials.pop("connect_args", None)
-        if connect_args:
+        if connect_args := credentials.pop("connect_args", None):
             create_engine_kwargs["connect_args"] = connect_args
 
         if "private_key_path" in credentials:
@@ -178,8 +177,7 @@ class DatabaseStoreBackend(StoreBackend):
 
         self.drivername = drivername
 
-        engine = sa.create_engine(options, **create_engine_kwargs)
-        return engine
+        return sa.create_engine(options, **create_engine_kwargs)
 
     def _get_sqlalchemy_key_pair_auth_url(
         self, drivername: str, credentials: dict
@@ -251,21 +249,17 @@ class DatabaseStoreBackend(StoreBackend):
             raise ge_exceptions.StoreError(f"Unable to fetch value for key: {str(key)}")
 
     def _set(self, key, value, allow_update=True, **kwargs):
-        cols = {k: v for (k, v) in zip(self.key_columns, key)}
+        cols = dict(zip(self.key_columns, key))
         cols["value"] = value
 
-        if allow_update:
-            if self.has_key(key):
-                ins = (
-                    self._table.update()
-                    .where(getattr(self._table.columns, self.key_columns[0]) == key[0])
-                    .values(**cols)
-                )
-            else:
-                ins = self._table.insert().values(**cols)
+        if allow_update and self.has_key(key):
+            ins = (
+                self._table.update()
+                .where(getattr(self._table.columns, self.key_columns[0]) == key[0])
+                .values(**cols)
+            )
         else:
             ins = self._table.insert().values(**cols)
-
         try:
             self.engine.execute(ins)
         except IntegrityError as e:
@@ -280,8 +274,7 @@ class DatabaseStoreBackend(StoreBackend):
         raise NotImplementedError
 
     def get_url_for_key(self, key):
-        url = self._convert_engine_and_key_to_url(key)
-        return url
+        return self._convert_engine_and_key_to_url(key)
 
     def _convert_engine_and_key_to_url(self, key):
         # SqlAlchemy engine URL is formatted in the following way

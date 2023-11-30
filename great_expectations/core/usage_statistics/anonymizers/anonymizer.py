@@ -140,9 +140,7 @@ class Anonymizer:
                         parent_class_list.append(parent_class.__name__)
 
                 if parent_class_list:
-                    concatenated_parent_classes: str = ",".join(
-                        cls for cls in parent_class_list
-                    )
+                    concatenated_parent_classes: str = ",".join(parent_class_list)
                     anonymized_info_dict["parent_class"] = concatenated_parent_classes
                     anonymized_info_dict["anonymized_class"] = self.anonymize(
                         object_class_name
@@ -193,23 +191,27 @@ class Anonymizer:
             object_ or object_class or object_config
         ), "Must pass either object_ or object_class or object_config."
         try:
-            if object_class is None and object_ is not None:
-                object_class = object_.__class__
-            elif object_class is None and object_config is not None:
-                object_class_name = object_config.get("class_name")
-                object_module_name = object_config.get("module_name")
-                object_class = load_class(object_class_name, object_module_name)
+            if object_class is None:
+                if object_ is not None:
+                    object_class = object_.__class__
+                elif object_config is not None:
+                    object_class_name = object_config.get("class_name")
+                    object_module_name = object_config.get("module_name")
+                    object_class = load_class(object_class_name, object_module_name)
 
             object_class_name = object_class.__name__
             object_module_name = object_class.__module__
 
             # Utilize candidate list if provided.
             if classes_to_check:
-                for class_to_check in classes_to_check:
-                    if issubclass(object_class, class_to_check):
-                        return class_to_check.__name__
-                return None
-
+                return next(
+                    (
+                        class_to_check.__name__
+                        for class_to_check in classes_to_check
+                        if issubclass(object_class, class_to_check)
+                    ),
+                    None,
+                )
             # Otherwise, iterate through parents in inheritance hierarchy.
             parents: Tuple[type, ...] = object_class.__bases__
             parent_class: type
@@ -300,7 +302,7 @@ class Anonymizer:
         ]
 
         anonymized_batch_kwarg_keys = []
-        for batch_kwarg_key in batch_kwargs.keys():
+        for batch_kwarg_key in batch_kwargs:
             if batch_kwarg_key in ge_batch_kwarg_keys:
                 anonymized_batch_kwarg_keys.append(batch_kwarg_key)
             else:
@@ -338,14 +340,14 @@ class Anonymizer:
             expectation_suite_name = batch.expectation_suite_name
             datasource_name = batch.active_batch_definition.datasource_name
 
-        anonymized_info_dict = {}
+        anonymized_info_dict = {
+            "anonymized_batch_kwarg_keys": self._anonymize_batch_kwargs(
+                batch_kwargs
+            )
+            if batch_kwargs
+            else []
+        }
 
-        if batch_kwargs:
-            anonymized_info_dict[
-                "anonymized_batch_kwarg_keys"
-            ] = self._anonymize_batch_kwargs(batch_kwargs)
-        else:
-            anonymized_info_dict["anonymized_batch_kwarg_keys"] = []
         if expectation_suite_name:
             anonymized_info_dict["anonymized_expectation_suite_name"] = self.anonymize(
                 expectation_suite_name
@@ -452,8 +454,7 @@ class Anonymizer:
         Returns:
             An anonymized dictionary payload that obfuscates user-specific details.
         """
-        anonymized_info_dict = {}
-        anonymized_info_dict["anonymized_name"] = self.anonymize(store_name)
+        anonymized_info_dict = {"anonymized_name": self.anonymize(store_name)}
         store_backend_obj = store_obj.store_backend
 
         self._anonymize_object_info(
@@ -487,9 +488,7 @@ class Anonymizer:
         return anonymized_info_dict
 
     def _anonymize_execution_engine_info(self, name: str, config: dict) -> dict:
-        anonymized_info_dict = {}
-        anonymized_info_dict["anonymized_name"] = self.anonymize(name)
-
+        anonymized_info_dict = {"anonymized_name": self.anonymize(name)}
         from great_expectations.data_context.types.base import (
             ExecutionEngineConfig,
             executionEngineConfigSchema,
@@ -555,8 +554,7 @@ class Anonymizer:
         Returns:
             An anonymized dictionary payload that obfuscates user-specific details.
         """
-        anonymized_info_dict = {}
-        anonymized_expectation_counts = list()
+        anonymized_expectation_counts = []
 
         expectations = expectation_suite.expectations
         expectation_types = [
@@ -567,9 +565,11 @@ class Anonymizer:
             self.anonymize_expectation(expectation_type, expectation_info)
             anonymized_expectation_counts.append(expectation_info)
 
-        anonymized_info_dict["anonymized_name"] = self.anonymize(
-            expectation_suite.expectation_suite_name
-        )
+        anonymized_info_dict = {
+            "anonymized_name": self.anonymize(
+                expectation_suite.expectation_suite_name
+            )
+        }
         anonymized_info_dict["expectation_count"] = len(expectations)
         anonymized_info_dict[
             "anonymized_expectation_counts"
@@ -723,9 +723,6 @@ class Anonymizer:
                     destination["data_connector_query_keys"].append(key)
                 elif key in RUNTIME_PARAMETERS_KEYS:
                     destination["runtime_parameters_keys"].append(key)
-                else:
-                    pass
-
                 self._build_anonymized_batch_request(
                     destination=destination, source=value
                 )

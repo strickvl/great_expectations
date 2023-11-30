@@ -81,14 +81,13 @@ class ConfiguredAssetSqlDataConnector(DataConnector):
         data_asset_name_suffix: str = data_asset_config.get(
             "data_asset_name_suffix", ""
         )
-        schema_name: str = data_asset_config.get("schema_name", "")
-        include_schema_name: bool = data_asset_config.get("include_schema_name", True)
-        if schema_name and include_schema_name is False:
-            raise ge_exceptions.DataConnectorError(
-                message=f"{self.__class__.__name__} ran into an error while initializing Asset names. Schema {schema_name} was specified, but 'include_schema_name' flag was set to False."
-            )
+        if schema_name := data_asset_config.get("schema_name", ""):
+            include_schema_name: bool = data_asset_config.get("include_schema_name", True)
+            if not include_schema_name:
+                raise ge_exceptions.DataConnectorError(
+                    message=f"{self.__class__.__name__} ran into an error while initializing Asset names. Schema {schema_name} was specified, but 'include_schema_name' flag was set to False."
+                )
 
-        if schema_name:
             data_asset_name: str = f"{schema_name}.{data_asset_name}"
 
         data_asset_name: str = (
@@ -122,12 +121,10 @@ class ConfiguredAssetSqlDataConnector(DataConnector):
             column_names = self._get_column_names_from_splitter_kwargs(
                 data_asset_config["splitter_kwargs"]
             )
-            batch_identifiers_list = [dict(zip(column_names, row)) for row in rows]
+            return [dict(zip(column_names, row)) for row in rows]
 
         else:
-            batch_identifiers_list = [{}]
-
-        return batch_identifiers_list
+            return [{}]
 
     def _refresh_data_references_cache(self):
         self._data_references_cache = {}

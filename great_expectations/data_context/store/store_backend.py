@@ -118,8 +118,7 @@ class StoreBackend(metaclass=ABCMeta):
 
     def get(self, key, **kwargs):
         self._validate_key(key)
-        value = self._get(key, **kwargs)
-        return value
+        return self._get(key, **kwargs)
 
     def set(self, key, value, **kwargs):
         self._validate_key(key)
@@ -148,24 +147,15 @@ class StoreBackend(metaclass=ABCMeta):
         )
 
     def _validate_key(self, key):
-        if isinstance(key, tuple):
-            for key_element in key:
-                if not isinstance(key_element, str):
-                    raise TypeError(
-                        "Elements within tuples passed as keys to {} must be instances of {}, not {}".format(
-                            self.__class__.__name__,
-                            str,
-                            type(key_element),
-                        )
-                    )
-        else:
+        if not isinstance(key, tuple):
             raise TypeError(
-                "Keys in {} must be instances of {}, not {}".format(
-                    self.__class__.__name__,
-                    tuple,
-                    type(key),
-                )
+                f"Keys in {self.__class__.__name__} must be instances of {tuple}, not {type(key)}"
             )
+        for key_element in key:
+            if not isinstance(key_element, str):
+                raise TypeError(
+                    f"Elements within tuples passed as keys to {self.__class__.__name__} must be instances of {str}, not {type(key_element)}"
+                )
 
     def _validate_value(self, value):
         pass
@@ -194,11 +184,7 @@ class StoreBackend(metaclass=ABCMeta):
         raise NotImplementedError
 
     def is_ignored_key(self, key):
-        for ignored in self.IGNORED_FILES:
-            if ignored in key:
-                return True
-
-        return False
+        return any(ignored in key for ignored in self.IGNORED_FILES)
 
     @property
     def config(self) -> dict:

@@ -67,7 +67,7 @@ class SqlAlchemyQueryStore(Store):
                     "InMemoryStoreBackend"
                 )
                 for k, v in queries.items():
-                    self._store_backend.set(tuple([k]), v)
+                    self._store_backend.set((k, ), v)
 
             except (AssertionError, KeyError) as e:
                 raise ge_exceptions.InvalidConfigError(str(e))
@@ -97,9 +97,7 @@ class SqlAlchemyQueryStore(Store):
         filter_properties_dict(properties=self._config, clean_falsy=True, inplace=True)
 
     def _convert_key(self, key):
-        if isinstance(key, str):
-            return StringKey(key)
-        return key
+        return StringKey(key) if isinstance(key, str) else key
 
     def get(self, key):
         return super().get(self._convert_key(key))

@@ -69,7 +69,7 @@ class ConfiguredAssetFilePathDataConnector(FilePathDataConnector):
             assets = {}
         _assets: Dict[str, Union[dict, Asset]] = assets
         self._assets = _assets
-        self._build_assets_from_config(config=assets)
+        self._build_assets_from_config(config=_assets)
 
     @property
     def assets(self) -> Dict[str, Union[dict, Asset]]:
@@ -89,18 +89,18 @@ class ConfiguredAssetFilePathDataConnector(FilePathDataConnector):
         runtime_environment: dict = {"data_connector": self}
         config = assetConfigSchema.load(config)
         config = assetConfigSchema.dump(config)
-        asset: Asset = instantiate_class_from_config(
+        if asset := instantiate_class_from_config(
             config=config,
             runtime_environment=runtime_environment,
             config_defaults={},
-        )
-        if not asset:
+        ):
+            return asset
+        else:
             raise ge_exceptions.ClassInstantiationError(
                 module_name="great_expectations.datasource.data_connector.asset",
                 package_name=None,
                 class_name=config["class_name"],
             )
-        return asset
 
     def get_available_data_asset_names(self) -> List[str]:
         """
@@ -208,14 +208,15 @@ class ConfiguredAssetFilePathDataConnector(FilePathDataConnector):
         return regex_config
 
     def _get_asset(self, data_asset_name: str) -> Asset:
-        asset: Optional[Asset] = None
-        if (
-            data_asset_name is not None
-            and self.assets
-            and data_asset_name in self.assets
-        ):
-            asset = self.assets[data_asset_name]
-        return asset
+        return (
+            self.assets[data_asset_name]
+            if (
+                data_asset_name is not None
+                and self.assets
+                and data_asset_name in self.assets
+            )
+            else None
+        )
 
     def _get_data_reference_list_for_asset(self, asset: Optional[Asset]) -> List[str]:
         raise NotImplementedError

@@ -60,9 +60,7 @@ class CLIState:
 
 class CLI(click.MultiCommand):
     def list_commands(self, ctx):
-        # note that if --help is called this method is invoked before any flags
-        # are parsed or context set.
-        commands = [
+        return [
             "checkpoint",
             "datasource",
             "docs",
@@ -71,8 +69,6 @@ class CLI(click.MultiCommand):
             "store",
             "suite",
         ]
-
-        return commands
 
     def get_command(self, ctx, name):
         module_name = name.replace("-", "_")

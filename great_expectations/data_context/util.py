@@ -60,10 +60,7 @@ def instantiate_class_from_config(config, runtime_environment, config_defaults=N
             module_name = config_defaults.pop("module_name")
         except KeyError:
             raise KeyError(
-                "Neither config : {} nor config_defaults : {} contains a module_name key.".format(
-                    config,
-                    config_defaults,
-                )
+                f"Neither config : {config} nor config_defaults : {config_defaults} contains a module_name key."
             )
     else:
         # Pop the value without using it, to avoid sending an unwanted value to the config_class
@@ -81,10 +78,7 @@ def instantiate_class_from_config(config, runtime_environment, config_defaults=N
             class_name = config_defaults.pop("class_name")
         except KeyError:
             raise KeyError(
-                "Neither config : {} nor config_defaults : {} contains a class_name key.".format(
-                    config,
-                    config_defaults,
-                )
+                f"Neither config : {config} nor config_defaults : {config_defaults} contains a class_name key."
             )
     else:
         # Pop the value without using it, to avoid sending an unwanted value to the config_class
@@ -115,10 +109,7 @@ def instantiate_class_from_config(config, runtime_environment, config_defaults=N
         class_instance = class_(**config_with_defaults)
     except TypeError as e:
         raise TypeError(
-            "Couldn't instantiate class: {} with config: \n\t{}\n \n".format(
-                class_name, format_dict_for_error_message(config_with_defaults)
-            )
-            + str(e)
+            f"Couldn't instantiate class: {class_name} with config: \n\t{format_dict_for_error_message(config_with_defaults)}\n \n{str(e)}"
         )
 
     return class_instance
@@ -210,11 +201,7 @@ def substitute_config_variable(
         config_variable_name = m.group(1) or m.group(2)
         config_variable_value = config_variables_dict.get(config_variable_name)
 
-        if config_variable_value is not None:
-            if not isinstance(config_variable_value, str):
-                return config_variable_value
-            template_str = template_str.replace(m.group(), config_variable_value)
-        else:
+        if config_variable_value is None:
             raise ge_exceptions.MissingConfigVariableError(
                 f"""\n\nUnable to find a match for config substitution variable: `{config_variable_name}`.
 Please add this missing variable to your `uncommitted/config_variables.yml` file or your environment variables.
@@ -222,6 +209,9 @@ See https://great-expectations.readthedocs.io/en/latest/reference/data_context_r
                 missing_config_variable=config_variable_name,
             )
 
+        if not isinstance(config_variable_value, str):
+            return config_variable_value
+        template_str = template_str.replace(m.group(), config_variable_value)
     # 2. Replace the "$"'s that had been escaped
     template_str = template_str.replace(dollar_sign_escape_string, "$")
     template_str = substitute_value_from_secret_store(template_str)
@@ -456,7 +446,7 @@ def substitute_all_config_variables(
     if isinstance(data, BaseYamlConfig):
         data = (data.__class__.get_schema_class())().dump(data)
 
-    if isinstance(data, dict) or isinstance(data, OrderedDict):
+    if isinstance(data, (dict, OrderedDict)):
         return {
             k: substitute_all_config_variables(v, replace_variables_dict)
             for k, v in data.items()
@@ -494,11 +484,11 @@ def parse_substitution_variable(substitution_variable: str) -> Optional[str]:
     Returns:
         string of variable name e.g. SOME_VAR or None if not parsable. If there are multiple substitution variables this currently returns the first e.g. $SOME_$TRING -> $SOME_
     """
-    substitution_variable_name = pp.Word(pp.alphanums + "_").setResultsName(
+    substitution_variable_name = pp.Word(f"{pp.alphanums}_").setResultsName(
         "substitution_variable_name"
     )
     curly_brace_parser = "${" + substitution_variable_name + "}"
-    non_curly_brace_parser = "$" + substitution_variable_name
+    non_curly_brace_parser = f"${substitution_variable_name}"
     both_parser = curly_brace_parser | non_curly_brace_parser
     try:
         parsed_substitution_variable = both_parser.parseString(substitution_variable)
@@ -533,7 +523,7 @@ class PasswordMasker:
         Returns:
             url with password masked e.g. "postgresql+psycopg2://username:***@host:65432/database"
         """
-        if sa is not None and use_urlparse is False:
+        if sa is not None and not use_urlparse:
             engine = sa.create_engine(url, **kwargs)
             return engine.url.__repr__()
         else:

@@ -309,10 +309,7 @@ class PandasDatasource(LegacyDatasource):
         name = reader_fn.__name__
         if name == "read_parquet":
             return {}
-        if name == "read_excel":
-            return {}
-        else:
-            return {"encoding": "utf-8"}
+        return {} if name == "read_excel" else {"encoding": "utf-8"}
 
     def _get_reader_fn(self, reader_method=None, path=None):
         """Static helper for parsing reader types. If reader_method is not provided, path will be used to guess the

@@ -179,7 +179,7 @@ class EvaluationParameterParser:
                 for _ in range(num_args):
                     v = self.evaluate_stack(s)
                     k = s.pop()
-                    kwargs.update({k: v})
+                    kwargs[k] = v
                 return self.fn[op](**kwargs)
             else:
                 args = reversed([self.evaluate_stack(s) for _ in range(num_args)])
@@ -373,13 +373,13 @@ def parse_evaluation_parameter(
         # case here; is the evaluation parameter provided here in fact a metric definition?
         return evaluation_parameters[L[0]]
 
-    elif len(L) == 0 or L[0] != "Parse Failure":
+    elif not L or L[0] != "Parse Failure":
         # we have a stack to evaluate and there was no parse failure.
         # iterate through values and look for URNs pointing to a store:
         for i, ob in enumerate(expr.exprStack):
             if isinstance(ob, str) and ob in evaluation_parameters:
                 expr.exprStack[i] = str(evaluation_parameters[ob])
-            elif isinstance(ob, str) and ob not in evaluation_parameters:
+            elif isinstance(ob, str):
                 # try to retrieve this value from a store
                 try:
                     res = ge_urn.parseString(ob)
@@ -390,15 +390,8 @@ def parse_evaluation_parameter(
                                 res["metric_name"], res.get("metric_kwargs", {})
                             )
                         )  # value placed back in stack must be a string
-                    else:
-                        # handle other urn_types here, but note that validations URNs are being resolved elsewhere.
-                        pass
-                # graceful error handling for cases where the value in the stack isn't a URN:
-                except ParseException:
+                except (ParseException, AttributeError):
                     pass
-                except AttributeError:
-                    pass
-
     else:
         err_str, err_line, err_col = L[-1]
         raise EvaluationParameterError(
@@ -438,12 +431,15 @@ def _deduplicate_evaluation_parameter_dependencies(dependencies: dict) -> dict:
                     for metric_name in metric_list:
                         metric_kwargs[kwargs_id].add(metric_name)
         deduplicated[suite_name] = list(metrics)
-        if len(metric_kwargs) > 0:
-            deduplicated[suite_name] = deduplicated[suite_name] + [
+        if metric_kwargs:
+            deduplicated[suite_name] += [
                 {
                     "metric_kwargs_id": {
                         metric_kwargs: list(metrics_set)
-                        for (metric_kwargs, metrics_set) in metric_kwargs.items()
+                        for (
+                            metric_kwargs,
+                            metrics_set,
+                        ) in metric_kwargs.items()
                     }
                 }
             ]

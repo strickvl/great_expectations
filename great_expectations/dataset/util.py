@@ -231,21 +231,17 @@ def build_continuous_partition_object(
             See :ref:`partition_object`.
     """
     bins = dataset.get_column_partition(column, bins, n_bins, allow_relative_error)
-    if isinstance(bins, np.ndarray):
-        bins = bins.tolist()
-    else:
-        bins = list(bins)
+    bins = bins.tolist() if isinstance(bins, np.ndarray) else list(bins)
     weights = list(
         np.array(dataset.get_column_hist(column, tuple(bins)))
         / dataset.get_column_nonnull_count(column)
     )
     tail_weights = (1 - sum(weights)) / 2
-    partition_object = {
+    return {
         "bins": bins,
         "weights": weights,
         "tail_weights": [tail_weights, tail_weights],
     }
-    return partition_object
 
 
 def build_categorical_partition_object(dataset, column, sort="value"):
@@ -331,17 +327,10 @@ def infer_distribution_parameters(data, distribution, params=None):
             # Using https://en.wikipedia.org/wiki/Gamma_distribution
             params["alpha"] = params["mean"] / params.get("scale", 1)
 
-    # elif distribution == 'poisson':
-    #    if 'lambda' not in params.keys():
-    #       params['lambda'] = params['mean']
-
     elif distribution == "uniform":
         # scipy cdf(x, loc=0, scale=1)
         if "min" not in params.keys():
-            if "loc" in params.keys():
-                params["min"] = params["loc"]
-            else:
-                params["min"] = min(data)
+            params["min"] = params["loc"] if "loc" in params.keys() else min(data)
         if "max" not in params.keys():
             if "scale" in params.keys():
                 params["max"] = params["scale"]
@@ -354,12 +343,6 @@ def infer_distribution_parameters(data, distribution, params=None):
             # from https://en.wikipedia.org/wiki/Chi-squared_distribution
             params["df"] = params["mean"]
 
-    #  Expon only uses loc and scale, use default
-    # elif distribution == 'expon':
-    # scipy cdf(x, loc=0, scale=1)
-    #    if 'lambda' in params.keys():
-    # Lambda is optional
-    #        params['scale'] = 1 / params['lambda']
     elif distribution != "norm":
         raise AttributeError(
             "Unsupported distribution type. Please refer to Great Expectations Documentation"
@@ -479,7 +462,7 @@ def validate_distribution_parameters(distribution, params):
         elif distribution == "chi2" and params.get("df", -1) <= 0:
             raise ValueError(f"Invalid parameters: {chi2_msg}:")
 
-    elif isinstance(params, tuple) or isinstance(params, list):
+    elif isinstance(params, (tuple, list)):
         scale = None
 
         # `params` is a tuple or a list
@@ -569,12 +552,7 @@ def create_multiple_expectations(df, columns, expectation_type, *args, **kwargs)
 
     """
     expectation = getattr(df, expectation_type)
-    results = list()
-
-    for column in columns:
-        results.append(expectation(column, *args, **kwargs))
-
-    return results
+    return [expectation(column, *args, **kwargs) for column in columns]
 
 
 def get_approximate_percentile_disc_sql(selects: List, sql_engine_dialect: Any) -> str:

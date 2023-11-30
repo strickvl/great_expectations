@@ -121,15 +121,14 @@ class InferredAssetS3DataConnector(InferredAssetFilePathDataConnector):
             "MaxKeys": self._max_keys,
         }
 
-        path_list: List[str] = [
-            key
-            for key in list_s3_keys(
+        path_list: List[str] = list(
+            list_s3_keys(
                 s3=self._s3,
                 query_options=query_options,
                 iterator_dict={},
                 recursive=True,
             )
-        ]
+        )
         return path_list
 
     def _get_full_file_path(
@@ -154,8 +153,7 @@ def _check_valid_s3_path(
     path: str,
 ) -> None:
     """Performs a basic check for validity of the S3 path"""
-    bad_chars: list = [c for c in INVALID_S3_CHARS if c in path]
-    if len(bad_chars) > 0:
+    if bad_chars := [c for c in INVALID_S3_CHARS if c in path]:
         msg: str = (
             f"The parsed S3 path={path} contains the invalid characters {bad_chars}."
             "Please make sure your regex is correct and characters are escaped."

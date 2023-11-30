@@ -116,9 +116,7 @@ class UsageStatisticsHandler:
                 return
             try:
                 res = session.post(self._url, json=message, timeout=2)
-                logger.debug(
-                    "Posted usage stats: message status " + str(res.status_code)
-                )
+                logger.debug(f"Posted usage stats: message status {res.status_code}")
                 if res.status_code != 201:
                     logger.debug(
                         "Server rejected message: ", json.dumps(message, indent=2)
@@ -126,7 +124,7 @@ class UsageStatisticsHandler:
             except requests.exceptions.Timeout:
                 logger.debug("Timeout while sending usage stats message.")
             except Exception as e:
-                logger.debug("Unexpected error posting message: " + str(e))
+                logger.debug(f"Unexpected error posting message: {str(e)}")
             finally:
                 self._message_queue.task_done()
 
@@ -264,7 +262,7 @@ def get_usage_statistics_handler(args_array: list) -> Optional[UsageStatisticsHa
     except Exception as e:
         # An unknown error -- but we still fail silently
         logger.debug(
-            "Unrecognized error when trying to find usage_statistics_handler: " + str(e)
+            f"Unrecognized error when trying to find usage_statistics_handler: {str(e)}"
         )
         handler = None
     return handler
@@ -304,7 +302,7 @@ def usage_statistics_enabled_method(
                 message["success"] = False
                 raise
             finally:
-                if not ((result is None) or (result_payload_fn is None)):
+                if result is not None and result_payload_fn is not None:
                     nested_update(event_payload, result_payload_fn(result))
 
                 time_end: int = int(round(time.time() * 1000))

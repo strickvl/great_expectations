@@ -162,7 +162,7 @@ class ValidationResultIdentifier(DataContextKey):
     @classmethod
     def from_tuple(cls, tuple_):
         return cls(
-            ExpectationSuiteIdentifier.from_tuple(tuple_[0:-3]),
+            ExpectationSuiteIdentifier.from_tuple(tuple_[:-3]),
             RunIdentifier.from_tuple((tuple_[-3], tuple_[-2])),
             tuple_[-1],
         )

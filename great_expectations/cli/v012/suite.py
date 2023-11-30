@@ -114,9 +114,7 @@ def _suite_edit(
                 _batch = toolkit.load_batch(context, suite, batch_kwargs)
             except json_parse_exception as je:
                 cli_message(
-                    "<red>Please check that your batch_kwargs are valid JSON.\n{}</red>".format(
-                        je
-                    )
+                    f"<red>Please check that your batch_kwargs are valid JSON.\n{je}</red>"
                 )
                 if not suppress_usage_message:
                     send_usage_message(
@@ -140,9 +138,7 @@ def _suite_edit(
                 sys.exit(1)
             except ValueError as ve:
                 cli_message(
-                    "<red>Please check that your batch_kwargs are able to load a batch.\n{}</red>".format(
-                        ve
-                    )
+                    f"<red>Please check that your batch_kwargs are able to load a batch.\n{ve}</red>"
                 )
                 if not suppress_usage_message:
                     send_usage_message(
@@ -162,7 +158,6 @@ def _suite_edit(
 A batch of data is required to edit the suite - let's help you to specify it."""
             )
 
-            additional_batch_kwargs = None
             try:
                 data_source = toolkit.select_datasource(
                     context, datasource_name=datasource
@@ -189,6 +184,7 @@ A batch of data is required to edit the suite - let's help you to specify it."""
                 sys.exit(1)
 
             if batch_kwargs is None:
+                additional_batch_kwargs = None
                 (
                     datasource_name,
                     batch_kwargs_generator,
@@ -519,7 +515,7 @@ def suite_list(directory):
             f" - <cyan>{suite_name}</cyan>"
             for suite_name in context.list_expectation_suite_names()
         ]
-        if len(suite_names) == 0:
+        if not suite_names:
             cli_message("No Expectation Suites found")
             send_usage_message(
                 data_context=context,

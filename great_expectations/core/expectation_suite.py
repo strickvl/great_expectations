@@ -133,27 +133,24 @@ class ExpectationSuite(SerializableDictDot):
         - data_asset_type
         """
         if not isinstance(other, self.__class__):
-            if isinstance(other, dict):
-                try:
-                    other_dict: dict = expectationSuiteSchema.load(other)
-                    other: ExpectationSuite = ExpectationSuite(
-                        **other_dict, data_context=self._data_context
-                    )
-                except ValidationError:
-                    logger.debug(
-                        "Unable to evaluate equivalence of ExpectationConfiguration object with dict because "
-                        "dict other could not be instantiated as an ExpectationConfiguration"
-                    )
-                    return NotImplemented
-            else:
+            if not isinstance(other, dict):
                 # Delegate comparison to the other instance
                 return NotImplemented
 
+            try:
+                other_dict: dict = expectationSuiteSchema.load(other)
+                other: ExpectationSuite = ExpectationSuite(
+                    **other_dict, data_context=self._data_context
+                )
+            except ValidationError:
+                logger.debug(
+                    "Unable to evaluate equivalence of ExpectationConfiguration object with dict because "
+                    "dict other could not be instantiated as an ExpectationConfiguration"
+                )
+                return NotImplemented
         return len(self.expectations) == len(other.expectations) and all(
-            [
-                mine.isEquivalentTo(theirs)
-                for (mine, theirs) in zip(self.expectations, other.expectations)
-            ]
+            mine.isEquivalentTo(theirs)
+            for (mine, theirs) in zip(self.expectations, other.expectations)
         )
 
     def __eq__(self, other):
@@ -238,9 +235,7 @@ class ExpectationSuite(SerializableDictDot):
             citations = self._filter_citations(
                 citations=citations, filter_key="profiler_config"
             )
-        if not sort:
-            return citations
-        return self._sort_citations(citations=citations)
+        return citations if not sort else self._sort_citations(citations=citations)
 
     def get_table_expectations(self):
         """Return a list of table expectations."""
@@ -258,10 +253,11 @@ class ExpectationSuite(SerializableDictDot):
     def _filter_citations(
         citations: List[Dict[str, Any]], filter_key
     ) -> List[Dict[str, Any]]:
-        citations_with_bk: List[Dict[str, Any]] = []
-        for citation in citations:
-            if filter_key in citation and citation.get(filter_key):
-                citations_with_bk.append(citation)
+        citations_with_bk: List[Dict[str, Any]] = [
+            citation
+            for citation in citations
+            if filter_key in citation and citation.get(filter_key)
+        ]
         return citations_with_bk
 
     @staticmethod
@@ -320,10 +316,10 @@ class ExpectationSuite(SerializableDictDot):
 
         elif len(found_expectation_indexes) > 1:
             if remove_multiple_matches:
-                removed_expectations = []
-                for index in sorted(found_expectation_indexes, reverse=True):
-                    removed_expectations.append(self.expectations.pop(index))
-                return removed_expectations
+                return [
+                    self.expectations.pop(index)
+                    for index in sorted(found_expectation_indexes, reverse=True)
+                ]
             else:
                 raise ValueError(
                     "More than one matching expectation was found. Specify more precise matching criteria,"
@@ -387,16 +383,14 @@ class ExpectationSuite(SerializableDictDot):
             raise InvalidExpectationConfigurationError(
                 "Ensure that expectation configuration is valid."
             )
-        match_indexes = []
-        for idx, expectation in enumerate(self.expectations):
-            if ge_cloud_id is not None:
-                if str(expectation.ge_cloud_id) == str(ge_cloud_id):
-                    match_indexes.append(idx)
-            else:
-                if expectation.isEquivalentTo(expectation_configuration, match_type):
-                    match_indexes.append(idx)
-
-        return match_indexes
+        return [
+            idx
+            for idx, expectation in enumerate(self.expectations)
+            if ge_cloud_id is not None
+            and str(expectation.ge_cloud_id) == ge_cloud_id
+            or ge_cloud_id is None
+            and expectation.isEquivalentTo(expectation_configuration, match_type)
+        ]
 
     def find_expectations(
         self,
@@ -589,9 +583,9 @@ class ExpectationSuite(SerializableDictDot):
         return expectation_configuration
 
     def send_usage_event(self, success: bool):
-        usage_stats_event_name: str = "expectation_suite.add_expectation"
-        usage_stats_event_payload: dict = {}
         if self._data_context is not None:
+            usage_stats_event_name: str = "expectation_suite.add_expectation"
+            usage_stats_event_payload: dict = {}
             self._data_context.send_usage_message(
                 event=usage_stats_event_name,
                 event_payload=usage_stats_event_payload,

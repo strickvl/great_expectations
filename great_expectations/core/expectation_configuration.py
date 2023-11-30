@@ -1124,8 +1124,7 @@ class ExpectationConfiguration(SerializableDictDot):
             key: self.kwargs.get(key, default_kwarg_values.get(key))
             for key in domain_keys
         }
-        missing_kwargs = set(domain_keys) - set(domain_kwargs.keys())
-        if missing_kwargs:
+        if missing_kwargs := set(domain_keys) - set(domain_kwargs.keys()):
             raise InvalidExpectationKwargsError(
                 f"Missing domain kwargs: {list(missing_kwargs)}"
             )
@@ -1198,8 +1197,8 @@ class ExpectationConfiguration(SerializableDictDot):
         self, other_expectation_configuration: "ExpectationConfiguration"
     ) -> bool:
         if (
-            not self.expectation_type
-            == other_expectation_configuration.expectation_type
+            self.expectation_type
+            != other_expectation_configuration.expectation_type
         ):
             return False
         return (
@@ -1214,31 +1213,22 @@ class ExpectationConfiguration(SerializableDictDot):
     ) -> bool:
         """ExpectationConfiguration equivalence does not include meta, and relies on *equivalence* of kwargs."""
         if not isinstance(other, self.__class__):
-            if isinstance(other, dict):
-                try:
-                    other = expectationConfigurationSchema.load(other)
-                except ValidationError:
-                    logger.debug(
-                        "Unable to evaluate equivalence of ExpectationConfiguration object with dict because "
-                        "dict other could not be instantiated as an ExpectationConfiguration"
-                    )
-                    return NotImplemented
-            else:
+            if not isinstance(other, dict):
                 # Delegate comparison to the other instance
+                return NotImplemented
+            try:
+                other = expectationConfigurationSchema.load(other)
+            except ValidationError:
+                logger.debug(
+                    "Unable to evaluate equivalence of ExpectationConfiguration object with dict because "
+                    "dict other could not be instantiated as an ExpectationConfiguration"
+                )
                 return NotImplemented
         if match_type == "domain":
             return all(
                 (
                     self.expectation_type == other.expectation_type,
                     self.get_domain_kwargs() == other.get_domain_kwargs(),
-                )
-            )
-
-        elif match_type == "success":
-            return all(
-                (
-                    self.expectation_type == other.expectation_type,
-                    self.get_success_kwargs() == other.get_success_kwargs(),
                 )
             )
 
@@ -1249,6 +1239,14 @@ class ExpectationConfiguration(SerializableDictDot):
                     self.kwargs == other.kwargs,
                 )
             )
+        elif match_type == "success":
+            return all(
+                (
+                    self.expectation_type == other.expectation_type,
+                    self.get_success_kwargs() == other.get_success_kwargs(),
+                )
+            )
+
         return False
 
     def __eq__(self, other):
@@ -1312,9 +1310,7 @@ class ExpectationConfiguration(SerializableDictDot):
                 continue
 
             # Query stores do not have "expectation_suite_name"
-            if urn["urn_type"] == "stores" and "expectation_suite_name" not in urn:
-                pass
-            else:
+            if urn["urn_type"] != "stores" or "expectation_suite_name" in urn:
                 self._update_dependencies_with_expectation_suite_urn(dependencies, urn)
 
         dependencies = _deduplicate_evaluation_parameter_dependencies(dependencies)

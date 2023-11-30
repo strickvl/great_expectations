@@ -104,9 +104,7 @@ PROFILER_STORE_STRING = yaml.dump(
     {"profiler_store": DataContextConfigDefaults.DEFAULT_STORES.value["profiler_store"]}
 ).replace("\n", "\n  ")[:-2]
 
-PROJECT_OPTIONAL_CONFIG_COMMENT = (
-    CONFIG_VARIABLES_INTRO
-    + f"""
+PROJECT_OPTIONAL_CONFIG_COMMENT = f"""{CONFIG_VARIABLES_INTRO}
 config_variables_file_path: {DataContextConfigDefaults.DEFAULT_CONFIG_VARIABLES_FILEPATH.value}
 
 # The plugins_directory will be added to your python path for custom modules
@@ -149,18 +147,16 @@ data_docs_sites:
     site_index_builder:
         class_name: DefaultSiteIndexBuilder
 """
-)
-
-ANONYMIZED_USAGE_STATISTICS_ENABLED = """
-anonymous_usage_statistics:
-  enabled: True
-"""
 
 ANONYMIZED_USAGE_STATISTICS_DISABLED = """
 anonymous_usage_statistics:
   enabled: False
 """
 
+ANONYMIZED_USAGE_STATISTICS_ENABLED = """
+anonymous_usage_statistics:
+  enabled: True
+"""
 PROJECT_TEMPLATE_USAGE_STATISTICS_ENABLED = (
     PROJECT_HELP_COMMENT
     + PROJECT_OPTIONAL_CONFIG_COMMENT

@@ -69,11 +69,10 @@ class ExpectationDiagnostics(SerializableDictDot):
 
     def generate_checklist(self) -> str:
         """Generates the checklist in CLI-appropriate string format."""
-        str_ = self._convert_checks_into_output_message(
+        return self._convert_checks_into_output_message(
             self.description["camel_name"],
             self.maturity_checklist,
         )
-        return str_
 
     @staticmethod
     def _check_library_metadata(
@@ -147,7 +146,6 @@ class ExpectationDiagnostics(SerializableDictDot):
         """Check whether core logic for this Expectation exists and passes tests on at least one Execution Engine"""
 
         sub_messages = []
-        backends_passing_all_tests = []
         backend_results = defaultdict(list)
         passed = False
         message = "Has core logic and passes tests on at least one Execution Engine"
@@ -155,11 +153,9 @@ class ExpectationDiagnostics(SerializableDictDot):
         for test_result in test_results:
             backend_results[test_result.backend].append(test_result.test_passed)
 
-        for backend in backend_results:
-            if all(backend_results[backend]):
-                backends_passing_all_tests.append(backend)
-
-        if len(backends_passing_all_tests) > 0:
+        if backends_passing_all_tests := [
+            backend for backend, value in backend_results.items() if all(value)
+        ]:
             passed = True
             backend = backends_passing_all_tests[0]
             sub_messages.append(
@@ -189,35 +185,30 @@ class ExpectationDiagnostics(SerializableDictDot):
     ) -> ExpectationDiagnosticCheckMessage:
         """Check whether core logic for this Expectation exists and passes tests on all applicable Execution Engines"""
 
-        sub_messages = []
         backends_passing_all_tests = []
         backends_failing_any_tests = []
         failing_names = []
         backend_results = defaultdict(list)
-        passed = False
         message = "Has core logic that passes tests for all applicable Execution Engines and SQL dialects"
         for test_result in test_results:
             backend_results[test_result.backend].append(test_result.test_passed)
             if test_result.test_passed is False:
                 failing_names.append(test_result.test_title)
 
-        for backend in backend_results:
-            if all(backend_results[backend]):
+        for backend, value in backend_results.items():
+            if all(value):
                 backends_passing_all_tests.append(backend)
             else:
                 backends_failing_any_tests.append(backend)
 
-        if len(backends_passing_all_tests) > 0 and len(backends_failing_any_tests) == 0:
-            passed = True
-
-        for backend in backends_passing_all_tests:
-            sub_messages.append(
-                {
-                    "message": f"All {len(backend_results[backend])} tests for {backend} are passing",
-                    "passed": True,
-                }
-            )
-
+        passed = bool(backends_passing_all_tests and not backends_failing_any_tests)
+        sub_messages = [
+            {
+                "message": f"All {len(backend_results[backend])} tests for {backend} are passing",
+                "passed": True,
+            }
+            for backend in backends_passing_all_tests
+        ]
         for backend in backends_failing_any_tests:
             num_tests = len(backend_results[backend])
             num_passing = backend_results[backend].count(True)
@@ -228,7 +219,7 @@ class ExpectationDiagnostics(SerializableDictDot):
                 }
             )
 
-        if len(failing_names) > 0:
+        if failing_names:
             sub_messages.append(
                 {
                     "message": f"Failing: {', '.join(failing_names)}",
@@ -356,7 +347,6 @@ class ExpectationDiagnostics(SerializableDictDot):
         expectation_instance,
     ) -> ExpectationDiagnosticCheckMessage:
         """Check if all statment renderers are defined"""
-        passed = False
         # For now, don't include the "question" and "descriptive" types since they are so
         # sparsely implemented
         # all_renderer_types = {"diagnostic", "prescriptive", "question", "descriptive"}
@@ -367,8 +357,7 @@ class ExpectationDiagnostics(SerializableDictDot):
             if name.endswith("renderer") and name.startswith("_")
         ]
         renderer_types = {name.split("_")[1] for name in renderer_names}
-        if renderer_types - {"question", "descriptive"} == all_renderer_types:
-            passed = True
+        passed = renderer_types - {"question", "descriptive"} == all_renderer_types
         return ExpectationDiagnosticCheckMessage(
             # message="Has all four statement Renderers: question, descriptive, prescriptive, diagnostic",
             message="Has both statement Renderers: prescriptive and diagnostic",

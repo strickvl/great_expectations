@@ -259,11 +259,7 @@ class FilePathDataConnector(DataConnector):
         (i.e. add '/' to the end of a string meant to represent a directory)
         """
         _, ext = os.path.splitext(text)
-        if ext:
-            # Provided prefix is a filename so no adjustment is necessary
-            return text
-        # Provided prefix is a directory (so we want to ensure we append it with '/')
-        return os.path.join(text, "")
+        return text if ext else os.path.join(text, "")
 
     def _generate_batch_spec_parameters_from_batch_definition(
         self, batch_definition: BatchDefinition
@@ -294,7 +290,8 @@ batch identifiers {batch_definition.batch_identifiers} from batch definition {ba
             regex_config: dict = self._get_regex_config(data_asset_name=data_asset_name)
             group_names: List[str] = regex_config["group_names"]
             if any(
-                [sorter_name not in group_names for sorter_name in self.sorters.keys()]
+                sorter_name not in group_names
+                for sorter_name in self.sorters.keys()
             ):
                 raise ge_exceptions.DataConnectorError(
                     f"""DataConnector "{self.name}" specifies one or more sort keys that do not appear among the

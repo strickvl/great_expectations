@@ -68,7 +68,7 @@ def build_images(python_docker_tags: List[str], ge_version: str, repository: str
         tag = mk_image_tag(python_docker_tag, ge_version)
         image_name = f"{repository}:{tag}"
 
-        logger.info("Building image: " + image_name)
+        logger.info(f"Building image: {image_name}")
 
         for line in client.api.build(
             path=".",
@@ -78,8 +78,7 @@ def build_images(python_docker_tags: List[str], ge_version: str, repository: str
             rm=True,
             decode=True,
         ):
-            stripped = line.get("stream", "").strip()
-            if stripped:
+            if stripped := line.get("stream", "").strip():
                 logger.info(stripped)
 
 
@@ -96,16 +95,17 @@ def push_images(python_docker_tags: List[str], ge_version: str, repository: str)
         for line in client.api.push(
             repository=repository, tag=tag, stream=True, decode=True
         ):
-            status = line.get("status", "").strip()
-            if status:
-                progress = line.get("progress", "").strip()
-                if progress:
+            if status := line.get("status", "").strip():
+                if progress := line.get("progress", "").strip():
                     logger.info(f"{status}: {progress}")
                 else:
                     logger.info(status)
 
-            error_detail = line.get("errorDetail", {}).get("message", "").strip()
-            if error_detail:
+            if (
+                error_detail := line.get("errorDetail", {})
+                .get("message", "")
+                .strip()
+            ):
                 logger.error(error_detail)
 
 

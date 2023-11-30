@@ -61,7 +61,9 @@ def build_batch_filter(
 "{str(type(batch_filter_parameters))}", which is illegal.
                 """
             )
-        if not all([isinstance(key, str) for key in batch_filter_parameters.keys()]):
+        if not all(
+            isinstance(key, str) for key in batch_filter_parameters.keys()
+        ):
             raise ge_exceptions.BatchFilterError(
                 'All batch_filter_parameters keys must strings (Python "str").'
             )
@@ -195,20 +197,19 @@ class BatchFilter:
                 batch_definition_list,
             )
         )
-        if len(selected_batch_definitions) == 0:
+        if not selected_batch_definitions:
             return selected_batch_definitions
 
         if self.index is None:
             selected_batch_definitions = selected_batch_definitions[: self.limit]
+        elif isinstance(self.index, int):
+            selected_batch_definitions = [selected_batch_definitions[self.index]]
         else:
-            if isinstance(self.index, int):
-                selected_batch_definitions = [selected_batch_definitions[self.index]]
-            else:
-                selected_batch_definitions = list(
-                    itertools.chain.from_iterable(
-                        [selected_batch_definitions[self.index]]
-                    )
+            selected_batch_definitions = list(
+                itertools.chain.from_iterable(
+                    [selected_batch_definitions[self.index]]
                 )
+            )
         return selected_batch_definitions
 
     def best_effort_batch_definition_matcher(self) -> Callable:

@@ -105,8 +105,7 @@ class TableBatchKwargsGenerator(BatchKwargsGenerator):
 
             except sqlalchemy.exc.OperationalError:
                 logger.warning(
-                    "Unable to create inspector from engine in batch kwargs generator '%s'"
-                    % name
+                    f"Unable to create inspector from engine in batch kwargs generator '{name}'"
                 )
                 self.inspector = None
 
@@ -147,7 +146,6 @@ class TableBatchKwargsGenerator(BatchKwargsGenerator):
                 table=table_name, schema=schema_name
             )
 
-        # If this is not a manually configured asset, we fall back to inspection of the database
         elif self.engine is not None and self.inspector is not None:
             project_id = None
             schema_name = None
@@ -175,9 +173,7 @@ class TableBatchKwargsGenerator(BatchKwargsGenerator):
                     shape = f"[PROJECT_ID.]{shape}"
 
                 raise ValueError(
-                    "Table name must be of shape '{}'. Passed: {}".format(
-                        shape, split_data_asset_name
-                    )
+                    f"Table name must be of shape '{shape}'. Passed: {split_data_asset_name}"
                 )
 
             try:

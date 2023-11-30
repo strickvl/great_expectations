@@ -42,7 +42,5 @@ class DatabricksTableBatchKwargsGenerator(BatchKwargsGenerator):
         if kwargs.get("partition"):
             if not kwargs.get("date_field"):
                 raise Exception("Must specify date_field when using partition.")
-            query += ' where {} = "{}"'.format(
-                kwargs.get("date_field"), kwargs.get("partition")
-            )
+            query += f' where {kwargs.get("date_field")} = "{kwargs.get("partition")}"'
         return iter([{"query": query}])
