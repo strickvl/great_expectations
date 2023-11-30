@@ -8,8 +8,7 @@ from typing import Dict, Iterator, List, Mapping, Optional, Set, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
-ANNOTATION_REGEX = r""
-ANNOTATION_REGEX += r"[\s]*(id:.*)[\n]"
+ANNOTATION_REGEX = r"" + r"[\s]*(id:.*)[\n]"
 ANNOTATION_REGEX += r"[\s]*(title:.*)[\n]"
 ANNOTATION_REGEX += r"[\s]*(icon:.*)[\n]"
 ANNOTATION_REGEX += r"[\s]*(short_description:.*)[\n]"
@@ -64,18 +63,22 @@ def parse_feature_annotation(docstring: Union[str, List[str], None]):
                 if this_key == "id":
                     id_val = this_val
 
-                if this_key in maturity_details_keys:
-                    maturity_details_dict[this_key] = this_val
-                elif this_key == "icon":  # icon is a special cases
-                    if this_val == "":
-                        annotation_dict[
-                            this_key
-                        ] = f"https://great-expectations-web-assets.s3.us-east-2.amazonaws.com/feature_maturity_icons/{id_val}.png"
-                    else:
-                        annotation_dict[this_key] = this_val
-                else:
+                if (
+                    this_key not in maturity_details_keys
+                    and this_key == "icon"
+                    and not this_val
+                ):
+                    annotation_dict[
+                        this_key
+                    ] = f"https://great-expectations-web-assets.s3.us-east-2.amazonaws.com/feature_maturity_icons/{id_val}.png"
+                elif (
+                    this_key not in maturity_details_keys
+                    and this_key == "icon"
+                    or this_key not in maturity_details_keys
+                ):
                     annotation_dict[this_key] = this_val
-
+                else:
+                    maturity_details_dict[this_key] = this_val
             annotation_dict["maturity_details"] = maturity_details_dict
             if annotation_dict is not None:
                 list_of_annotations.append(annotation_dict)

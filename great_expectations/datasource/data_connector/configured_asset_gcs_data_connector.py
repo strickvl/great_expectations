@@ -152,14 +152,13 @@ class ConfiguredAssetGCSDataConnector(ConfiguredAssetFilePathDataConnector):
             if asset.max_results:
                 query_options["max_results"] = asset.max_results
 
-        path_list: List[str] = [
-            key
-            for key in list_gcs_keys(
+        path_list: List[str] = list(
+            list_gcs_keys(
                 gcs=self._gcs,
                 query_options=query_options,
                 recursive=False,
             )
-        ]
+        )
         return path_list
 
     def _get_full_file_path_for_asset(

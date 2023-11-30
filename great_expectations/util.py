@@ -186,7 +186,7 @@ def measure_execution_time(
                     bound_args: BoundArguments = signature(func).bind(*args, **kwargs)
                     call_args: OrderedDict = bound_args.arguments
                     print(
-                        f"Total execution time of function {func.__name__}({str(dict(call_args))}): {delta_t} ms."
+                        f"Total execution time of function {func.__name__}({dict(call_args)}): {delta_t} ms."
                     )
 
         return compute_delta_t
@@ -279,7 +279,7 @@ def get_currently_executing_function_call_arguments(
         call_args_dict.update(value)
 
     if include_module_name:
-        call_args_dict.update({"module_name": cur_mod.__name__})
+        call_args_dict["module_name"] = cur_mod.__name__
 
     if not include_caller_names:
         if call_args.get("cls"):
@@ -885,8 +885,7 @@ def validate(
                 "When providing an expectation suite, expectation_suite_name cannot also be provided."
             )
         logger.info(
-            "Validating data_asset_name %s with expectation_suite_name %s"
-            % (data_asset_name, expectation_suite.expectation_suite_name)
+            f"Validating data_asset_name {data_asset_name} with expectation_suite_name {expectation_suite.expectation_suite_name}"
         )
 
     # If the object is already a DataAsset type, then this is purely a convenience method
@@ -923,11 +922,9 @@ def validate(
         )
 
     if not issubclass(type(data_asset), data_asset_class):
-        if isinstance(data_asset, pd.DataFrame) and issubclass(
+        if not isinstance(data_asset, pd.DataFrame) or not issubclass(
             data_asset_class, PandasDataset
         ):
-            pass  # This is a special type of allowed coercion
-        else:
             raise ValueError(
                 "The validate util method only supports validation for subtypes of the provided data_asset_type."
             )
@@ -954,9 +951,7 @@ def gen_directory_tree_str(startpath):
 
     output_str = ""
 
-    tuples = list(os.walk(startpath))
-    tuples.sort()
-
+    tuples = sorted(os.walk(startpath))
     for root, dirs, files in tuples:
         level = root.replace(startpath, "").count(os.sep)
         indent = " " * 4 * level
@@ -986,8 +981,7 @@ def lint_code(code: str) -> str:
     if not isinstance(code, str):
         raise TypeError
     try:
-        linted_code = black.format_file_contents(code, fast=True, mode=black_file_mode)
-        return linted_code
+        return black.format_file_contents(code, fast=True, mode=black_file_mode)
     except (black.NothingChanged, RuntimeError):
         return code
 
@@ -1142,10 +1136,7 @@ def filter_properties_dict(
     for key in keys_for_deletion:
         del properties[key]
 
-    if inplace:
-        return None
-
-    return properties
+    return None if inplace else properties
 
 
 def deep_filter_properties_iterable(
@@ -1228,10 +1219,7 @@ def deep_filter_properties_iterable(
             )
         )
 
-    if inplace:
-        return None
-
-    return properties
+    return None if inplace else properties
 
 
 def _is_to_be_removed_from_deep_filter_properties_iterable(
@@ -1242,15 +1230,12 @@ def _is_to_be_removed_from_deep_filter_properties_iterable(
         not keep_falsy_numerics and is_numeric(value) and value == 0,
         clean_falsy and not is_numeric(value) and not value,
     )
-    return any(condition for condition in conditions)
+    return any(conditions)
 
 
 def is_truthy(value: Any) -> bool:
     try:
-        if value:
-            return True
-        else:
-            return False
+        return bool(value)
     except ValueError:
         return False
 
@@ -1319,7 +1304,7 @@ def is_sane_slack_webhook(url: str) -> bool:
 
 
 def is_list_of_strings(_list) -> bool:
-    return isinstance(_list, list) and all([isinstance(site, str) for site in _list])
+    return isinstance(_list, list) and all(isinstance(site, str) for site in _list)
 
 
 def generate_library_json_from_registered_expectations():
@@ -1346,12 +1331,11 @@ def generate_temporary_table_name(
 
 
 def get_sqlalchemy_inspector(engine):
-    if version.parse(sa.__version__) < version.parse("1.4"):
-        # Inspector.from_engine deprecated since 1.4, sa.inspect() should be used instead
-        insp = reflection.Inspector.from_engine(engine)
-    else:
-        insp = sa.inspect(engine)
-    return insp
+    return (
+        reflection.Inspector.from_engine(engine)
+        if version.parse(sa.__version__) < version.parse("1.4")
+        else sa.inspect(engine)
+    )
 
 
 def get_sqlalchemy_url(drivername, **credentials):
@@ -1402,11 +1386,8 @@ def import_make_url():
 def get_pyathena_potential_type(type_module, type_):
     if version.parse(type_module.pyathena.__version__) >= version.parse("2.5.0"):
         # introduction of new column type mapping in 2.5
-        potential_type = type_module.AthenaDialect()._get_column_type(type_)
-    else:
-        if type_ == "string":
-            type_ = "varchar"
+        return type_module.AthenaDialect()._get_column_type(type_)
+    if type_ == "string":
+        type_ = "varchar"
         # < 2.5 column type mapping
-        potential_type = type_module._TYPE_MAPPINGS.get(type_)
-
-    return potential_type
+    return type_module._TYPE_MAPPINGS.get(type_)

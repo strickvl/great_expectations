@@ -255,17 +255,11 @@ class SqlAlchemyDatasource(LegacyDatasource):
                 if "connection_string" in kwargs:
                     connection_string = kwargs.pop("connection_string")
                     self.engine = create_engine(connection_string, **kwargs)
-                    connection = self.engine.connect()
-                    connection.close()
                 elif "url" in credentials:
                     url = credentials.pop("url")
                     parsed_url = make_url(url)
                     self.drivername = parsed_url.drivername
                     self.engine = create_engine(url, **kwargs)
-                    connection = self.engine.connect()
-                    connection.close()
-
-                # Otherwise, connect using remaining kwargs.
                 else:
                     (
                         options,
@@ -274,9 +268,8 @@ class SqlAlchemyDatasource(LegacyDatasource):
                     ) = self._get_sqlalchemy_connection_options(**kwargs)
                     self.drivername = drivername
                     self.engine = create_engine(options, **create_engine_kwargs)
-                    connection = self.engine.connect()
-                    connection.close()
-
+                connection = self.engine.connect()
+                connection.close()
             # since we switched to lazy loading of Datasources when we initialise a DataContext,
             # the dialect of SQLAlchemy Datasources cannot be obtained reliably when we send
             # "data_context.__init__" events.
@@ -310,8 +303,7 @@ class SqlAlchemyDatasource(LegacyDatasource):
 
         create_engine_kwargs = {}
 
-        connect_args = credentials.pop("connect_args", None)
-        if connect_args:
+        if connect_args := credentials.pop("connect_args", None):
             create_engine_kwargs["connect_args"] = connect_args
 
         # if a connection string or url was provided in the profile, use that

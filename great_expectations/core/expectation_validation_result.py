@@ -84,7 +84,7 @@ class ExpectationValidationResult(SerializableDictDot):
                 result_dict = self.to_json_dict()["result"]
                 other_result_dict = other.to_json_dict()["result"]
                 contents_equal = all(
-                    [result_dict[k] == other_result_dict[k] for k in common_keys]
+                    result_dict[k] == other_result_dict[k] for k in common_keys
                 )
             else:
                 contents_equal = False
@@ -172,9 +172,7 @@ class ExpectationValidationResult(SerializableDictDot):
             or result["unexpected_percent_nonmissing"] > 100
         ):
             return False
-        if result.get("missing_count") and result["missing_count"] < 0:
-            return False
-        return True
+        return not result.get("missing_count") or result["missing_count"] >= 0
 
     def to_json_dict(self):
         myself = expectationValidationResultSchema.dump(self)
@@ -230,8 +228,7 @@ class ExpectationValidationResult(SerializableDictDot):
                         return self.result["details"].get(metric_name_parts[3])
                 except KeyError:
                     raise ge_exceptions.UnavailableMetricError(
-                        "Unable to get metric {} -- KeyError in "
-                        "ExpectationValidationResult.".format(metric_name)
+                        f"Unable to get metric {metric_name} -- KeyError in ExpectationValidationResult."
                     )
         raise ge_exceptions.UnavailableMetricError(
             f"Unrecognized metric name {metric_name}"
@@ -346,30 +343,25 @@ class ExpectationSuiteValidationResult(SerializableDictDot):
                     f"Unrecognized metric {metric_name}"
                 )
 
-        # Expose expectation-defined metrics
         elif metric_name_parts[0].lower().startswith("expect_"):
-            # Check our cache first
             if (metric_name, metric_kwargs_id) in self._metrics:
                 return self._metrics[(metric_name, metric_kwargs_id)]
-            else:
-                for result in self.results:
-                    try:
-                        if (
-                            metric_name_parts[0]
-                            == result.expectation_config.expectation_type
-                        ):
-                            metric_value = result.get_metric(metric_name, **kwargs)
-                            break
-                    except ge_exceptions.UnavailableMetricError:
-                        pass
-                if metric_value is not None:
-                    self._metrics[(metric_name, metric_kwargs_id)] = metric_value
-                    return metric_value
+            for result in self.results:
+                try:
+                    if (
+                        metric_name_parts[0]
+                        == result.expectation_config.expectation_type
+                    ):
+                        metric_value = result.get_metric(metric_name, **kwargs)
+                        break
+                except ge_exceptions.UnavailableMetricError:
+                    pass
+            if metric_value is not None:
+                self._metrics[(metric_name, metric_kwargs_id)] = metric_value
+                return metric_value
 
         raise ge_exceptions.UnavailableMetricError(
-            "Metric {} with metric_kwargs_id {} is not available.".format(
-                metric_name, metric_kwargs_id
-            )
+            f"Metric {metric_name} with metric_kwargs_id {metric_kwargs_id} is not available."
         )
 
     def get_failed_validation_results(self) -> "ExpectationSuiteValidationResult":

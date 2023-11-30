@@ -56,15 +56,15 @@ class MetaPandasDataset(Dataset):
         @cls.expectation(argspec)
         @wraps(func)
         def inner_wrapper(
-            self,
-            column,
-            mostly=None,
-            result_format=None,
-            row_condition=None,
-            condition_parser=None,
-            *args,
-            **kwargs,
-        ):
+                self,
+                column,
+                mostly=None,
+                result_format=None,
+                row_condition=None,
+                condition_parser=None,
+                *args,
+                **kwargs,
+            ):
 
             if result_format is None:
                 result_format = self.default_expectation_args["result_format"]
@@ -102,7 +102,7 @@ class MetaPandasDataset(Dataset):
             else:
                 boolean_mapped_null_values = series.isnull().values
 
-            element_count = int(len(series))
+            element_count = len(series)
 
             # FIXME rename nonnull to non_ignored?
             nonnull_values = series[boolean_mapped_null_values == False]
@@ -178,17 +178,17 @@ class MetaPandasDataset(Dataset):
         @cls.expectation(argspec)
         @wraps(func)
         def inner_wrapper(
-            self,
-            column_A,
-            column_B,
-            mostly=None,
-            ignore_row_if="both_values_are_missing",
-            result_format=None,
-            row_condition=None,
-            condition_parser=None,
-            *args,
-            **kwargs,
-        ):
+                self,
+                column_A,
+                column_B,
+                mostly=None,
+                ignore_row_if="both_values_are_missing",
+                result_format=None,
+                row_condition=None,
+                condition_parser=None,
+                *args,
+                **kwargs,
+            ):
 
             if result_format is None:
                 result_format = self.default_expectation_args["result_format"]
@@ -220,24 +220,20 @@ class MetaPandasDataset(Dataset):
             ), "Series A and B must be the same length"
 
             # This next bit only works if series_A and _B are the same length
-            element_count = int(len(series_A))
+            element_count = len(series_A)
             nonnull_count = (boolean_mapped_null_values == False).sum()
 
             nonnull_values_A = series_A[boolean_mapped_null_values == False]
             nonnull_values_B = series_B[boolean_mapped_null_values == False]
-            nonnull_values = [
-                value_pair
-                for value_pair in zip(list(nonnull_values_A), list(nonnull_values_B))
-            ]
+            nonnull_values = list(zip(list(nonnull_values_A), list(nonnull_values_B)))
 
             boolean_mapped_success_values = func(
                 self, nonnull_values_A, nonnull_values_B, *args, **kwargs
             )
             success_count = boolean_mapped_success_values.sum()
 
-            unexpected_list = [
-                value_pair
-                for value_pair in zip(
+            unexpected_list = list(
+                zip(
                     list(
                         series_A[
                             (boolean_mapped_success_values == False)
@@ -251,7 +247,7 @@ class MetaPandasDataset(Dataset):
                         ]
                     ),
                 )
-            ]
+            )
             unexpected_index_list = list(
                 series_A[
                     (boolean_mapped_success_values == False)
@@ -542,15 +538,9 @@ Notes:
 
         result = self[column]
         if min_val is not None:
-            if strict_min:
-                result = result[result > min_val]
-            else:
-                result = result[result >= min_val]
+            result = result[result > min_val] if strict_min else result[result >= min_val]
         if max_val is not None:
-            if strict_max:
-                result = result[result < max_val]
-            else:
-                result = result[result <= max_val]
+            result = result[result < max_val] if strict_max else result[result <= max_val]
         return len(result)
 
     def get_crosstab(
@@ -617,9 +607,8 @@ Notes:
                 value_counts = series.value_counts(sort=True)
                 if len(value_counts) < n_bins + 1:
                     return series.fillna("(missing)")
-                else:
-                    other_values = sorted(value_counts.index[n_bins:])
-                    replace = {value: "(other)" for value in other_values}
+                other_values = sorted(value_counts.index[n_bins:])
+                replace = {value: "(other)" for value in other_values}
             else:
                 replace = {}
                 for x in bins:
@@ -747,15 +736,6 @@ Notes:
                     kwargs={"column": column},
                 )
             )
-            assert len(new_expectations) == 1
-            old_config = self._expectation_suite.expectations[new_expectations[0]]
-            new_config = ExpectationConfiguration(
-                expectation_type="expect_column_values_to_be_of_type",
-                kwargs=old_config.kwargs,
-                meta=old_config.meta,
-                success_on_last_run=old_config.success_on_last_run,
-            )
-            self._expectation_suite.expectations[new_expectations[0]] = new_config
         else:
             res = self._expect_column_values_to_be_of_type__map(column, type_, **kwargs)
             # Note: this logic is similar to the logic in _append_expectation for deciding when to overwrite an
@@ -783,16 +763,15 @@ Notes:
                     kwargs={"column": column},
                 )
             )
-            assert len(new_expectations) == 1
-            old_config = self._expectation_suite.expectations[new_expectations[0]]
-            new_config = ExpectationConfiguration(
-                expectation_type="expect_column_values_to_be_of_type",
-                kwargs=old_config.kwargs,
-                meta=old_config.meta,
-                success_on_last_run=old_config.success_on_last_run,
-            )
-            self._expectation_suite.expectations[new_expectations[0]] = new_config
-
+        old_config = self._expectation_suite.expectations[new_expectations[0]]
+        assert len(new_expectations) == 1
+        new_config = ExpectationConfiguration(
+            expectation_type="expect_column_values_to_be_of_type",
+            kwargs=old_config.kwargs,
+            meta=old_config.meta,
+            success_on_last_run=old_config.success_on_last_run,
+        )
+        self._expectation_suite.expectations[new_expectations[0]] = new_config
         return res
 
     @DataAsset.expectation(["column", "type_", "mostly"])
@@ -904,7 +883,7 @@ Notes:
         if native_type is not None:
             comp_types.extend(native_type)
 
-        if len(comp_types) < 1:
+        if not comp_types:
             raise ValueError(f"Unrecognized numpy/python type: {type_}")
 
         return column.map(lambda x: isinstance(x, tuple(comp_types)))
@@ -970,15 +949,6 @@ Notes:
                     kwargs={"column": column},
                 )
             )
-            assert len(new_expectations) == 1
-            old_config = self._expectation_suite.expectations[new_expectations[0]]
-            new_config = ExpectationConfiguration(
-                expectation_type="expect_column_values_to_be_in_type_list",
-                kwargs=old_config.kwargs,
-                meta=old_config.meta,
-                success_on_last_run=old_config.success_on_last_run,
-            )
-            self._expectation_suite.expectations[new_expectations[0]] = new_config
         else:
             res = self._expect_column_values_to_be_in_type_list__map(
                 column, type_list, **kwargs
@@ -1008,16 +978,15 @@ Notes:
                     kwargs={"column": column},
                 )
             )
-            assert len(new_expectations) == 1
-            old_config = self._expectation_suite.expectations[new_expectations[0]]
-            new_config = ExpectationConfiguration(
-                expectation_type="expect_column_values_to_be_in_type_list",
-                kwargs=old_config.kwargs,
-                meta=old_config.meta,
-                success_on_last_run=old_config.success_on_last_run,
-            )
-            self._expectation_suite.expectations[new_expectations[0]] = new_config
-
+        old_config = self._expectation_suite.expectations[new_expectations[0]]
+        assert len(new_expectations) == 1
+        new_config = ExpectationConfiguration(
+            expectation_type="expect_column_values_to_be_in_type_list",
+            kwargs=old_config.kwargs,
+            meta=old_config.meta,
+            success_on_last_run=old_config.success_on_last_run,
+        )
+        self._expectation_suite.expectations[new_expectations[0]] = new_config
         return res
 
     @MetaPandasDataset.expectation(["column", "type_list", "mostly"])
@@ -1108,7 +1077,7 @@ Notes:
             if native_type is not None:
                 comp_types.extend(native_type)
 
-        if len(comp_types) < 1:
+        if not comp_types:
             raise ValueError(f"No recognized numpy/python type in list: {type_list}")
 
         return column.map(lambda x: isinstance(x, tuple(comp_types)))
@@ -1260,20 +1229,13 @@ Notes:
             # The first element is null, so it gets a bye and is always treated as True
             col_diff[0] = pd.Timedelta(1)
 
-            if strictly:
-                return col_diff > pd.Timedelta(0)
-            else:
-                return col_diff >= pd.Timedelta(0)
-
+            return col_diff > pd.Timedelta(0) if strictly else col_diff >= pd.Timedelta(0)
         else:
             col_diff = column.diff()
             # The first element is null, so it gets a bye and is always treated as True
             col_diff[col_diff.isnull()] = 1
 
-            if strictly:
-                return col_diff > 0
-            else:
-                return col_diff >= 0
+            return col_diff > 0 if strictly else col_diff >= 0
 
     @DocInherit
     @MetaPandasDataset.column_map_expectation
@@ -1299,20 +1261,13 @@ Notes:
             # The first element is null, so it gets a bye and is always treated as True
             col_diff[0] = pd.Timedelta(-1)
 
-            if strictly:
-                return col_diff < pd.Timedelta(0)
-            else:
-                return col_diff <= pd.Timedelta(0)
-
+            return col_diff < pd.Timedelta(0) if strictly else col_diff <= pd.Timedelta(0)
         else:
             col_diff = column.diff()
             # The first element is null, so it gets a bye and is always treated as True
             col_diff[col_diff.isnull()] = -1
 
-            if strictly:
-                return col_diff < 0
-            else:
-                return col_diff <= 0
+            return col_diff < 0 if strictly else col_diff <= 0
 
     @DocInherit
     @MetaPandasDataset.column_map_expectation
@@ -1352,7 +1307,7 @@ Notes:
         elif min_value is None and max_value is not None:
             return column_lengths <= max_value
 
-        elif min_value is not None and max_value is None:
+        elif min_value is not None:
             return column_lengths >= min_value
 
         else:
@@ -1422,9 +1377,9 @@ Notes:
         meta=None,
     ):
 
-        regex_matches = []
-        for regex in regex_list:
-            regex_matches.append(column.astype(str).str.contains(regex))
+        regex_matches = [
+            column.astype(str).str.contains(regex) for regex in regex_list
+        ]
         regex_match_df = pd.concat(regex_matches, axis=1, ignore_index=True)
 
         if match_on == "any":
@@ -1448,9 +1403,9 @@ Notes:
         catch_exceptions=None,
         meta=None,
     ):
-        regex_matches = []
-        for regex in regex_list:
-            regex_matches.append(column.astype(str).str.contains(regex))
+        regex_matches = [
+            column.astype(str).str.contains(regex) for regex in regex_list
+        ]
         regex_match_df = pd.concat(regex_matches, axis=1, ignore_index=True)
 
         return ~regex_match_df.any(axis="columns")
@@ -1802,20 +1757,12 @@ Notes:
             return np.ones(len(column_A), dtype=np.bool_)
 
         temp_df = pd.DataFrame({"A": column_A, "B": column_B})
-        value_pairs_set = {(x, y) for x, y in value_pairs_set}
+        value_pairs_set = set(value_pairs_set)
 
         results = []
         for i, t in temp_df.iterrows():
-            if pd.isnull(t["A"]):
-                a = None
-            else:
-                a = t["A"]
-
-            if pd.isnull(t["B"]):
-                b = None
-            else:
-                b = t["B"]
-
+            a = None if pd.isnull(t["A"]) else t["A"]
+            b = None if pd.isnull(t["B"]) else t["B"]
             results.append((a, b) in value_pairs_set)
 
         return pd.Series(results, temp_df.index)

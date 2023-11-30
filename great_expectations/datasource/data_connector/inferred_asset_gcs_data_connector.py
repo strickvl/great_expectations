@@ -141,14 +141,13 @@ class InferredAssetGCSDataConnector(InferredAssetFilePathDataConnector):
             "max_results": self._max_results,
         }
 
-        path_list: List[str] = [
-            key
-            for key in list_gcs_keys(
+        path_list: List[str] = list(
+            list_gcs_keys(
                 gcs=self._gcs,
                 query_options=query_options,
                 recursive=True,
             )
-        ]
+        )
         return path_list
 
     def _get_full_file_path(

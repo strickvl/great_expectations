@@ -56,8 +56,7 @@ class MetricIdentifier(DataContextKey):
     def from_object(cls, metric):
         if not isinstance(metric, Metric):
             raise GreatExpectationsError(
-                "Unable to build MetricIdentifier from object of type {} when Metric is "
-                "expected.".format(type(metric))
+                f"Unable to build MetricIdentifier from object of type {type(metric)} when Metric is expected."
             )
         return cls(metric.metric_name, metric.metric_kwargs_id)
 
@@ -69,9 +68,7 @@ class MetricIdentifier(DataContextKey):
             tuple_metric_kwargs_id = "__"
         else:
             tuple_metric_kwargs_id = self._metric_kwargs_id
-        return tuple(
-            (self.metric_name, tuple_metric_kwargs_id)
-        )  # We use the placeholder in to_tuple
+        return self.metric_name, tuple_metric_kwargs_id
 
     @classmethod
     def from_fixed_length_tuple(cls, tuple_):
@@ -79,9 +76,7 @@ class MetricIdentifier(DataContextKey):
 
     @classmethod
     def from_tuple(cls, tuple_):
-        if tuple_[-1] == "__":
-            return cls(*tuple_[:-1], None)
-        return cls(*tuple_)
+        return cls(*tuple_[:-1], None) if tuple_[-1] == "__" else cls(*tuple_)
 
 
 class BatchMetric(Metric):
@@ -202,8 +197,7 @@ class ValidationMetricIdentifier(MetricIdentifier):
     def from_object(cls, validation_metric):
         if not isinstance(validation_metric, ValidationMetric):
             raise GreatExpectationsError(
-                "Unable to build ValidationMetricIdentifier from object of type {} when "
-                "ValidationMetric is expected.".format(type(validation_metric))
+                f"Unable to build ValidationMetricIdentifier from object of type {type(validation_metric)} when ValidationMetric is expected."
             )
 
         return cls(
@@ -256,10 +250,7 @@ class ValidationMetricIdentifier(MetricIdentifier):
             raise GreatExpectationsError(
                 "ValidationMetricIdentifier tuple must have at least six components."
             )
-        if tuple_[2] == "__":
-            tuple_data_asset_name = None
-        else:
-            tuple_data_asset_name = tuple_[2]
+        tuple_data_asset_name = None if tuple_[2] == "__" else tuple_[2]
         metric_id = MetricIdentifier.from_tuple(tuple_[-2:])
         return cls(
             run_id=RunIdentifier.from_tuple((tuple_[0], tuple_[1])),
@@ -278,16 +269,13 @@ class ValidationMetricIdentifier(MetricIdentifier):
                 "ValidationMetricIdentifier fixed length tuple must have exactly six "
                 "components."
             )
-        if tuple_[2] == "__":
-            tuple_data_asset_name = None
-        else:
-            tuple_data_asset_name = tuple_[2]
+        tuple_data_asset_name = None if tuple_[2] == "__" else tuple_[2]
         metric_id = MetricIdentifier.from_tuple(tuple_[-2:])
         return cls(
             run_id=RunIdentifier.from_fixed_length_tuple((tuple_[0], tuple_[1])),
             data_asset_name=tuple_data_asset_name,
             expectation_suite_identifier=ExpectationSuiteIdentifier.from_fixed_length_tuple(
-                tuple((tuple_[3],))
+                (tuple_[3],)
             ),
             metric_name=metric_id.metric_name,
             metric_kwargs_id=metric_id.metric_kwargs_id,

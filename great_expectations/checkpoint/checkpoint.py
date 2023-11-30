@@ -195,8 +195,7 @@ class BaseCheckpoint(ConfigPeer):
 
         config_kwargs: dict = self.get_config(mode=ConfigOutputModes.JSON_DICT)
 
-        template_name: Optional[str] = runtime_kwargs.get("template_name")
-        if template_name:
+        if template_name := runtime_kwargs.get("template_name"):
             config_kwargs["template_name"] = template_name
 
         substituted_runtime_config: dict = self._get_substituted_template(
@@ -214,8 +213,7 @@ class BaseCheckpoint(ConfigPeer):
     ) -> dict:
         substituted_config: dict
 
-        template_name = source_config.get("template_name")
-        if template_name:
+        if template_name := source_config.get("template_name"):
             checkpoint: Checkpoint = self.data_context.get_checkpoint(
                 name=template_name
             )
@@ -389,20 +387,19 @@ class BaseCheckpoint(ConfigPeer):
         )
         action_list: Optional[list] = self.action_list
         action_list_present: bool = (
-            action_list is not None
-            and isinstance(action_list, list)
-            and len(action_list) > 0
-        ) or (
-            validations_present
+            (
+                action_list is not None
+                and isinstance(action_list, list)
+                and len(action_list) > 0
+            )
+            or validations_present
             and all(
-                [
-                    (
-                        validation.get("action_list")
-                        and isinstance(validation["action_list"], list)
-                        and len(validation["action_list"]) > 0
-                    )
-                    for validation in self.validations
-                ]
+                (
+                    validation.get("action_list")
+                    and isinstance(validation["action_list"], list)
+                    and len(validation["action_list"]) > 0
+                )
+                for validation in self.validations
             )
         )
         if pretty_print:
@@ -959,7 +956,7 @@ class LegacyCheckpoint(Checkpoint):
                 self.validation_operator_name
             )
         ):
-            results = self.data_context.run_validation_operator(
+            return self.data_context.run_validation_operator(
                 self.validation_operator_name,
                 assets_to_validate=batches_to_validate,
                 run_id=run_id,
@@ -969,22 +966,19 @@ class LegacyCheckpoint(Checkpoint):
                 result_format=result_format,
                 **kwargs,
             )
-        else:
-            if self.validation_operator_name:
-                logger.warning(
-                    f'Could not find Validation Operator "{self.validation_operator_name}" when '
-                    f'running Checkpoint "{self.name}". Using default action_list_operator.'
-                )
-            results = self._run_default_validation_operator(
-                assets_to_validate=batches_to_validate,
-                run_id=run_id,
-                evaluation_parameters=evaluation_parameters,
-                run_name=run_name,
-                run_time=run_time,
-                result_format=result_format,
+        if self.validation_operator_name:
+            logger.warning(
+                f'Could not find Validation Operator "{self.validation_operator_name}" when '
+                f'running Checkpoint "{self.name}". Using default action_list_operator.'
             )
-
-        return results
+        return self._run_default_validation_operator(
+            assets_to_validate=batches_to_validate,
+            run_id=run_id,
+            evaluation_parameters=evaluation_parameters,
+            run_name=run_name,
+            run_time=run_time,
+            result_format=result_format,
+        )
 
     def _get_batches_to_validate(self, batches):
         batches_to_validate = []

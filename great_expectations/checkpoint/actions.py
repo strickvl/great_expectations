@@ -165,8 +165,8 @@ class SlackNotificationAction(ValidationAction):
             runtime_environment={},
             config_defaults={},
         )
-        module_name = renderer["module_name"]
         if not self.renderer:
+            module_name = renderer["module_name"]
             raise ClassInstantiationError(
                 module_name=module_name,
                 package_name=None,
@@ -208,8 +208,7 @@ class SlackNotificationAction(ValidationAction):
             (ValidationResultIdentifier, GeCloudIdentifier),
         ):
             raise TypeError(
-                "validation_result_suite_id must be of type ValidationResultIdentifier or GeCloudIdentifier, "
-                "not {}".format(type(validation_result_suite_identifier))
+                f"validation_result_suite_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {type(validation_result_suite_identifier)}"
             )
 
         validation_success = validation_result_suite.success
@@ -310,8 +309,7 @@ class PagerdutyAlertAction(ValidationAction):
             (ValidationResultIdentifier, GeCloudIdentifier),
         ):
             raise TypeError(
-                "validation_result_suite_id must be of type ValidationResultIdentifier or GeCloudIdentifier, "
-                "not {}".format(type(validation_result_suite_identifier))
+                f"validation_result_suite_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {type(validation_result_suite_identifier)}"
             )
 
         validation_success = validation_result_suite.success
@@ -394,8 +392,8 @@ class MicrosoftTeamsNotificationAction(ValidationAction):
             runtime_environment={},
             config_defaults={},
         )
-        module_name = renderer["module_name"]
         if not self.renderer:
+            module_name = renderer["module_name"]
             raise ClassInstantiationError(
                 module_name=module_name,
                 package_name=None,
@@ -431,8 +429,7 @@ class MicrosoftTeamsNotificationAction(ValidationAction):
             (ValidationResultIdentifier, GeCloudIdentifier),
         ):
             raise TypeError(
-                "validation_result_suite_id must be of type ValidationResultIdentifier or GeCloudIdentifier, "
-                "not {}".format(type(validation_result_suite_identifier))
+                f"validation_result_suite_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {type(validation_result_suite_identifier)}"
             )
         validation_success = validation_result_suite.success
         data_docs_pages = None
@@ -508,8 +505,8 @@ class OpsgenieAlertAction(ValidationAction):
             runtime_environment={},
             config_defaults={},
         )
-        module_name = renderer["module_name"]
         if not self.renderer:
+            module_name = renderer["module_name"]
             raise ClassInstantiationError(
                 module_name=module_name,
                 package_name=None,
@@ -546,8 +543,7 @@ class OpsgenieAlertAction(ValidationAction):
             (ValidationResultIdentifier, GeCloudIdentifier),
         ):
             raise TypeError(
-                "validation_result_suite_id must be of type ValidationResultIdentifier or GeCloudIdentifier, "
-                "not {}".format(type(validation_result_suite_identifier))
+                f"validation_result_suite_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {type(validation_result_suite_identifier)}"
             )
 
         validation_success = validation_result_suite.success
@@ -648,8 +644,8 @@ class EmailAction(ValidationAction):
             runtime_environment={},
             config_defaults={},
         )
-        module_name = renderer["module_name"]
         if not self.renderer:
+            module_name = renderer["module_name"]
             raise ClassInstantiationError(
                 module_name=module_name,
                 package_name=None,
@@ -659,10 +655,7 @@ class EmailAction(ValidationAction):
         self.smtp_port = smtp_port
         self.sender_login = sender_login
         self.sender_password = sender_password
-        if not sender_alias:
-            self.sender_alias = sender_login
-        else:
-            self.sender_alias = sender_alias
+        self.sender_alias = sender_login if not sender_alias else sender_alias
         self.receiver_emails_list = list(
             map(lambda x: x.strip(), receiver_emails.split(","))
         )
@@ -704,8 +697,7 @@ class EmailAction(ValidationAction):
             (ValidationResultIdentifier, GeCloudIdentifier),
         ):
             raise TypeError(
-                "validation_result_suite_id must be of type ValidationResultIdentifier or GeCloudIdentifier, "
-                "not {}".format(type(validation_result_suite_identifier))
+                f"validation_result_suite_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {type(validation_result_suite_identifier)}"
             )
 
         validation_success = validation_result_suite.success
@@ -804,9 +796,7 @@ class StoreValidationResultAction(ValidationAction):
             (ValidationResultIdentifier, GeCloudIdentifier),
         ):
             raise TypeError(
-                "validation_result_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {}".format(
-                    type(validation_result_suite_identifier)
-                )
+                f"validation_result_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {type(validation_result_suite_identifier)}"
             )
 
         contract_ge_cloud_id = None
@@ -891,9 +881,7 @@ class StoreEvaluationParametersAction(ValidationAction):
             (ValidationResultIdentifier, GeCloudIdentifier),
         ):
             raise TypeError(
-                "validation_result_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {}".format(
-                    type(validation_result_suite_identifier)
-                )
+                f"validation_result_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {type(validation_result_suite_identifier)}"
             )
 
         self.data_context.store_evaluation_parameters(validation_result_suite)
@@ -941,9 +929,7 @@ class StoreMetricsAction(ValidationAction):
             store = data_context.stores[target_store_name]
         except KeyError:
             raise DataContextError(
-                "Unable to find store {} in your DataContext configuration.".format(
-                    target_store_name
-                )
+                f"Unable to find store {target_store_name} in your DataContext configuration."
             )
         if not isinstance(store, MetricStore):
             raise DataContextError(
@@ -974,9 +960,7 @@ class StoreMetricsAction(ValidationAction):
             (ValidationResultIdentifier, GeCloudIdentifier),
         ):
             raise TypeError(
-                "validation_result_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {}".format(
-                    type(validation_result_suite_identifier)
-                )
+                f"validation_result_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {type(validation_result_suite_identifier)}"
             )
 
         self.data_context.store_validation_result_metrics(
@@ -1053,9 +1037,7 @@ class UpdateDataDocsAction(ValidationAction):
             (ValidationResultIdentifier, GeCloudIdentifier),
         ):
             raise TypeError(
-                "validation_result_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {}".format(
-                    type(validation_result_suite_identifier)
-                )
+                f"validation_result_id must be of type ValidationResultIdentifier or GeCloudIdentifier, not {type(validation_result_suite_identifier)}"
             )
 
         # TODO Update for RenderedDataDocs
@@ -1120,9 +1102,7 @@ class CloudNotificationAction(ValidationAction):
             )
         if not isinstance(validation_result_suite_identifier, GeCloudIdentifier):
             raise TypeError(
-                "validation_result_id must be of type GeCloudIdentifier, not {}".format(
-                    type(validation_result_suite_identifier)
-                )
+                f"validation_result_id must be of type GeCloudIdentifier, not {type(validation_result_suite_identifier)}"
             )
 
         ge_cloud_url = urljoin(

@@ -135,11 +135,7 @@ class UpgradeHelperV13(BaseUpgradeHelper):
 
 UpgradeHelperV13 will upgrade your project to be compatible with Great Expectations V3 API.
 """
-        stores_upgrade_checklist = [
-            config_attribute
-            for config_attribute in self.upgrade_checklist["stores"].keys()
-        ]
-        store_names_upgrade_checklist = ["checkpoint_store_name"]
+        stores_upgrade_checklist = list(self.upgrade_checklist["stores"].keys())
         if self.upgrade_log["skipped_upgrade"]:
             upgrade_overview += """
 <green>\
@@ -152,6 +148,7 @@ Would you like to proceed?
             upgrade_overview += """
 <red>**WARNING**: Before proceeding, please make sure you have appropriate backups of your project.</red>
 """
+            store_names_upgrade_checklist = ["checkpoint_store_name"]
             if stores_upgrade_checklist or store_names_upgrade_checklist:
                 upgrade_overview += """
 <cyan>\

@@ -560,28 +560,27 @@ class Dataset(MetaDataset):
         columns = self.get_table_columns()
         if column_list is None or list(columns) == list(column_list):
             return {"success": True, "result": {"observed_value": list(columns)}}
-        else:
-            # In the case of differing column lengths between the defined expectation and the observed column set, the
-            # max is determined to generate the column_index.
-            number_of_columns = max(len(column_list), len(columns))
-            column_index = range(number_of_columns)
+        # In the case of differing column lengths between the defined expectation and the observed column set, the
+        # max is determined to generate the column_index.
+        number_of_columns = max(len(column_list), len(columns))
+        column_index = range(number_of_columns)
 
-            # Create a list of the mismatched details
-            compared_lists = list(
-                zip_longest(column_index, list(column_list), list(columns))
-            )
-            mismatched = [
-                {"Expected Column Position": i, "Expected": k, "Found": v}
-                for i, k, v in compared_lists
-                if k != v
-            ]
-            return {
-                "success": False,
-                "result": {
-                    "observed_value": list(columns),
-                    "details": {"mismatched": mismatched},
-                },
-            }
+        # Create a list of the mismatched details
+        compared_lists = list(
+            zip_longest(column_index, list(column_list), list(columns))
+        )
+        mismatched = [
+            {"Expected Column Position": i, "Expected": k, "Found": v}
+            for i, k, v in compared_lists
+            if k != v
+        ]
+        return {
+            "success": False,
+            "result": {
+                "observed_value": list(columns),
+                "details": {"mismatched": mismatched},
+            },
+        }
 
     @DocInherit
     @DataAsset.expectation(["column_set", "exact_match"])
@@ -634,47 +633,44 @@ class Dataset(MetaDataset):
         dataset_columns_set = set(dataset_columns_list)
 
         if (
-            (column_set is None) and (exact_match is not True)
-        ) or dataset_columns_set == column_set:
+            column_set is None
+            and not exact_match
+            or dataset_columns_set == column_set
+        ):
             return {"success": True, "result": {"observed_value": dataset_columns_list}}
-        else:
-            # Convert to lists and sort to lock order for testing and output rendering
-            # unexpected_list contains items from the dataset columns that are not in column_set
-            unexpected_list = sorted(list(dataset_columns_set - column_set))
-            # missing_list contains items from column_set that are not in the dataset columns
-            missing_list = sorted(list(column_set - dataset_columns_set))
-            # observed_value contains items that are in the dataset columns
-            observed_value = sorted(dataset_columns_list)
+        # Convert to lists and sort to lock order for testing and output rendering
+        # unexpected_list contains items from the dataset columns that are not in column_set
+        unexpected_list = sorted(list(dataset_columns_set - column_set))
+        # missing_list contains items from column_set that are not in the dataset columns
+        missing_list = sorted(list(column_set - dataset_columns_set))
+        # observed_value contains items that are in the dataset columns
+        observed_value = sorted(dataset_columns_list)
 
-            mismatched = {}
-            if len(unexpected_list) > 0:
-                mismatched["unexpected"] = unexpected_list
-            if len(missing_list) > 0:
-                mismatched["missing"] = missing_list
+        mismatched = {}
+        if len(unexpected_list) > 0:
+            mismatched["unexpected"] = unexpected_list
+        if len(missing_list) > 0:
+            mismatched["missing"] = missing_list
 
-            result = {
-                "observed_value": observed_value,
-                "details": {"mismatched": mismatched},
-            }
+        result = {
+            "observed_value": observed_value,
+            "details": {"mismatched": mismatched},
+        }
 
-            return_success = {
-                "success": True,
-                "result": result,
-            }
-            return_failed = {
-                "success": False,
-                "result": result,
-            }
+        return_success = {
+            "success": True,
+            "result": result,
+        }
+        return_failed = {
+            "success": False,
+            "result": result,
+        }
 
-            if exact_match:
-                return return_failed
-            else:
-                # Failed if there are items in the missing list (but OK to have unexpected_list)
-                if len(missing_list) > 0:
-                    return return_failed
-                # Passed if there are no items in the missing list
-                else:
-                    return return_success
+        return (
+            return_failed
+            if not exact_match and len(missing_list) > 0 or exact_match
+            else return_success
+        )
 
     # noinspection PyUnusedLocal
     @DocInherit
@@ -746,16 +742,8 @@ class Dataset(MetaDataset):
 
         column_count = self.get_column_count()
 
-        if min_value is not None:
-            above_min = column_count >= min_value
-        else:
-            above_min = True
-
-        if max_value is not None:
-            below_max = column_count <= max_value
-        else:
-            below_max = True
-
+        above_min = column_count >= min_value if min_value is not None else True
+        below_max = column_count <= max_value if max_value is not None else True
         outcome = above_min and below_max
 
         return {"success": outcome, "result": {"observed_value": column_count}}
@@ -890,16 +878,8 @@ class Dataset(MetaDataset):
 
         row_count = self.get_row_count()
 
-        if min_value is not None:
-            above_min = row_count >= min_value
-        else:
-            above_min = True
-
-        if max_value is not None:
-            below_max = row_count <= max_value
-        else:
-            below_max = True
-
+        above_min = row_count >= min_value if min_value is not None else True
+        below_max = row_count <= max_value if max_value is not None else True
         outcome = above_min and below_max
 
         return {"success": outcome, "result": {"observed_value": row_count}}
@@ -2688,18 +2668,12 @@ class Dataset(MetaDataset):
             return {"success": False, "result": {"observed_value": column_mean}}
 
         if min_value is not None:
-            if strict_min:
-                above_min = column_mean > min_value
-            else:
-                above_min = column_mean >= min_value
+            above_min = column_mean > min_value if strict_min else column_mean >= min_value
         else:
             above_min = True
 
         if max_value is not None:
-            if strict_max:
-                below_max = column_mean < max_value
-            else:
-                below_max = column_mean <= max_value
+            below_max = column_mean < max_value if strict_max else column_mean <= max_value
         else:
             below_max = True
 
@@ -2791,22 +2765,20 @@ class Dataset(MetaDataset):
         # if strict_max and max_value:
         #     max_value -= tolerance
 
-        if min_value is not None:
-            if strict_min:
-                above_min = column_median > min_value
-            else:
-                above_min = column_median >= min_value
-        else:
+        if min_value is None:
             above_min = True
 
-        if max_value is not None:
-            if strict_max:
-                below_max = column_median < max_value
-            else:
-                below_max = column_median <= max_value
+        elif strict_min:
+            above_min = column_median > min_value
         else:
+            above_min = column_median >= min_value
+        if max_value is None:
             below_max = True
 
+        elif strict_max:
+            below_max = column_median < max_value
+        else:
+            below_max = column_median <= max_value
         success = above_min and below_max
 
         return {"success": success, "result": {"observed_value": column_median}}
@@ -3032,22 +3004,20 @@ class Dataset(MetaDataset):
         # if strict_max and max_value:
         #     max_value -= tolerance
 
-        if min_value is not None:
-            if strict_min:
-                above_min = column_stdev > min_value
-            else:
-                above_min = column_stdev >= min_value
-        else:
+        if min_value is None:
             above_min = True
 
-        if max_value is not None:
-            if strict_max:
-                below_max = column_stdev < max_value
-            else:
-                below_max = column_stdev <= max_value
+        elif strict_min:
+            above_min = column_stdev > min_value
         else:
+            above_min = column_stdev >= min_value
+        if max_value is None:
             below_max = True
 
+        elif strict_max:
+            below_max = column_stdev < max_value
+        else:
+            below_max = column_stdev <= max_value
         success = above_min and below_max
 
         return {"success": success, "result": {"observed_value": column_stdev}}
@@ -3120,16 +3090,8 @@ class Dataset(MetaDataset):
         if unique_value_count is None:
             return {"success": False, "result": {"observed_value": unique_value_count}}
 
-        if min_value is not None:
-            above_min = unique_value_count >= min_value
-        else:
-            above_min = True
-
-        if max_value is not None:
-            below_max = unique_value_count <= max_value
-        else:
-            below_max = True
-
+        above_min = unique_value_count >= min_value if min_value is not None else True
+        below_max = unique_value_count <= max_value if max_value is not None else True
         success = above_min and below_max
 
         return {"success": success, "result": {"observed_value": unique_value_count}}
@@ -3227,22 +3189,20 @@ class Dataset(MetaDataset):
         #     if max_value:
         #         max_value -= tolerance
 
-        if min_value is not None:
-            if strict_min:
-                above_min = proportion_unique > min_value
-            else:
-                above_min = proportion_unique >= min_value
-        else:
+        if min_value is None:
             above_min = True
 
-        if max_value is not None:
-            if strict_max:
-                below_max = proportion_unique < max_value
-            else:
-                below_max = proportion_unique <= max_value
+        elif strict_min:
+            above_min = proportion_unique > min_value
         else:
+            above_min = proportion_unique >= min_value
+        if max_value is None:
             below_max = True
 
+        elif strict_max:
+            below_max = proportion_unique < max_value
+        else:
+            below_max = proportion_unique <= max_value
         success = above_min and below_max
 
         return {"success": success, "result": {"observed_value": proportion_unique}}
@@ -3398,18 +3358,12 @@ class Dataset(MetaDataset):
         #     max_value -= tolerance
 
         if min_value is not None:
-            if strict_min:
-                above_min = column_sum > min_value
-            else:
-                above_min = column_sum >= min_value
+            above_min = column_sum > min_value if strict_min else column_sum >= min_value
         else:
             above_min = True
 
         if max_value is not None:
-            if strict_max:
-                below_max = column_sum < max_value
-            else:
-                below_max = column_sum <= max_value
+            below_max = column_sum < max_value if strict_max else column_sum <= max_value
         else:
             below_max = True
 
@@ -3525,10 +3479,7 @@ class Dataset(MetaDataset):
                             f"Something went wrong when parsing 'min_value': {e}"
                         )
 
-                if strict_min:
-                    above_min = column_min > min_value
-                else:
-                    above_min = column_min >= min_value
+                above_min = column_min > min_value if strict_min else column_min >= min_value
             else:
                 above_min = True
 
@@ -3541,10 +3492,7 @@ class Dataset(MetaDataset):
                             f"Something went wrong when parsing 'max_value': {e}"
                         )
 
-                if strict_max:
-                    below_max = column_min < max_value
-                else:
-                    below_max = column_min <= max_value
+                below_max = column_min < max_value if strict_max else column_min <= max_value
             else:
                 below_max = True
 
@@ -3660,10 +3608,7 @@ class Dataset(MetaDataset):
                             f"Something went wrong when parsing 'min_value': {e}"
                         )
 
-                if strict_min:
-                    above_min = column_max > min_value
-                else:
-                    above_min = column_max >= min_value
+                above_min = column_max > min_value if strict_min else column_max >= min_value
             else:
                 above_min = True
 
@@ -3676,10 +3621,7 @@ class Dataset(MetaDataset):
                             f"Something went wrong when parsing 'max_value': {e}"
                         )
 
-                if strict_max:
-                    below_max = column_max < max_value
-                else:
-                    below_max = column_max <= max_value
+                below_max = column_max < max_value if strict_max else column_max <= max_value
             else:
                 below_max = True
 
@@ -4121,17 +4063,13 @@ class Dataset(MetaDataset):
 
             kl_divergence = stats.entropy(pk, qk)
 
-            if np.isinf(kl_divergence) or np.isnan(kl_divergence):
-                observed_value = None
-            else:
-                observed_value = kl_divergence
-
-            if threshold is None:
-                success = True
-            else:
-                success = kl_divergence <= threshold
-
-            return_obj = {
+            observed_value = (
+                None
+                if np.isinf(kl_divergence) or np.isnan(kl_divergence)
+                else kl_divergence
+            )
+            success = True if threshold is None else kl_divergence <= threshold
+            return {
                 "success": success,
                 "result": {
                     "observed_value": observed_value,
@@ -4348,12 +4286,8 @@ class Dataset(MetaDataset):
             else:
                 observed_value = kl_divergence
 
-            if threshold is None:
-                success = True
-            else:
-                success = kl_divergence <= threshold
-
-            return_obj = {
+            success = True if threshold is None else kl_divergence <= threshold
+            return {
                 "success": success,
                 "result": {
                     "observed_value": observed_value,
@@ -4372,8 +4306,6 @@ class Dataset(MetaDataset):
                     },
                 },
             }
-
-        return return_obj
 
     @MetaDataset.column_aggregate_expectation
     def expect_column_pair_cramers_phi_value_to_be_less_than(
@@ -4439,7 +4371,7 @@ class Dataset(MetaDataset):
             ),
             0,
         )
-        return_obj = {
+        return {
             "success": cramers_V <= threshold,
             "result": {
                 "observed_value": cramers_V,
@@ -4447,7 +4379,6 @@ class Dataset(MetaDataset):
                 "details": {"crosstab": crosstab},
             },
         }
-        return return_obj
 
     ###
     #
@@ -4799,10 +4730,10 @@ class Dataset(MetaDataset):
 
     @staticmethod
     def _parse_value_set(value_set):
-        parsed_value_set = [
-            parse(value) if isinstance(value, str) else value for value in value_set
+        return [
+            parse(value) if isinstance(value, str) else value
+            for value in value_set
         ]
-        return parsed_value_set
 
     def attempt_allowing_relative_error(self) -> Union[bool, float]:
         """

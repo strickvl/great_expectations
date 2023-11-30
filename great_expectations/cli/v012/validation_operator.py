@@ -54,9 +54,7 @@ def validation_operator_list(directory):
         elif len(validation_operators) == 1:
             list_intro_string = "1 Validation Operator found:"
         else:
-            list_intro_string = "{} Validation Operators found:".format(
-                len(validation_operators)
-            )
+            list_intro_string = f"{len(validation_operators)} Validation Operators found:"
 
         cli_message(list_intro_string)
         for validation_operator in validation_operators:
@@ -218,21 +216,20 @@ Call `great_expectation validation-operator list` command to list the operators 
                     success=False,
                 )
                 sys.exit(1)
-            else:
-                if name not in context.list_validation_operator_names():
-                    cli_message(
-                        f"""
+            elif name not in context.list_validation_operator_names():
+                cli_message(
+                    f"""
 Could not find a validation operator {name}.
 Call `great_expectation validation-operator list` command to list the operators in your project.
 """
-                    )
-                    send_usage_message(
-                        data_context=context,
-                        event="cli.validation_operator.run",
-                        api_version="v2",
-                        success=False,
-                    )
-                    sys.exit(1)
+                )
+                send_usage_message(
+                    data_context=context,
+                    event="cli.validation_operator.run",
+                    api_version="v2",
+                    success=False,
+                )
+                sys.exit(1)
 
             batch_kwargs = None
 
@@ -304,26 +301,23 @@ Let us help you specify the batch of data your want the validation operator to v
 
             run_id = RunIdentifier(run_name=run_name)
 
-            if suite is None:
+            if (
+                suite is not None
+                and suite.evaluation_parameters is None
+                or suite is None
+            ):
                 results = context.run_validation_operator(
                     validation_operator_name,
                     assets_to_validate=batches_to_validate,
                     run_id=run_id,
                 )
             else:
-                if suite.evaluation_parameters is None:
-                    results = context.run_validation_operator(
-                        validation_operator_name,
-                        assets_to_validate=batches_to_validate,
-                        run_id=run_id,
-                    )
-                else:
-                    results = context.run_validation_operator(
-                        validation_operator_name,
-                        assets_to_validate=batches_to_validate,
-                        run_id=run_id,
-                        evaluation_parameters=suite.evaluation_parameters,
-                    )
+                results = context.run_validation_operator(
+                    validation_operator_name,
+                    assets_to_validate=batches_to_validate,
+                    run_id=run_id,
+                    evaluation_parameters=suite.evaluation_parameters,
+                )
         except (ge_exceptions.DataContextError, OSError, SQLAlchemyError) as e:
             cli_message(f"<red>{e}</red>")
             send_usage_message(

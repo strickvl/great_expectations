@@ -105,9 +105,7 @@ class ConfiguredAssetS3DataConnector(ConfiguredAssetFilePathDataConnector):
             return text
 
         path_parts = text.split("/")
-        if not path_parts:  # Empty prefix
-            return text
-        elif "." in path_parts[-1]:  # File, not folder
+        if not path_parts or "." in path_parts[-1]:  # Empty prefix
             return text
         else:  # Folder, should have trailing /
             return f"{text.rstrip('/')}/"
@@ -144,15 +142,14 @@ class ConfiguredAssetS3DataConnector(ConfiguredAssetFilePathDataConnector):
             if asset.max_keys:
                 query_options["MaxKeys"] = asset.max_keys
 
-        path_list: List[str] = [
-            key
-            for key in list_s3_keys(
+        path_list: List[str] = list(
+            list_s3_keys(
                 s3=self._s3,
                 query_options=query_options,
                 iterator_dict={},
                 recursive=False,
             )
-        ]
+        )
         return path_list
 
     def _get_full_file_path_for_asset(

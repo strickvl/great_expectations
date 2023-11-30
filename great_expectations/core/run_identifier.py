@@ -73,8 +73,7 @@ class RunIdentifier(DataContextKey):
         return json.dumps(self.to_json_dict(), indent=2)
 
     def to_json_dict(self):
-        myself = runIdentifierSchema.dump(self)
-        return myself
+        return runIdentifierSchema.dump(self)
 
     @classmethod
     def from_tuple(cls, tuple_):

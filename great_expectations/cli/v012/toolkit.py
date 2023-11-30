@@ -256,7 +256,7 @@ def _get_default_expectation_suite_name(batch_kwargs, data_asset_name):
             filename = os.path.split(os.path.normpath(batch_kwargs["path"]))[1]
             # Take all but the last part after the period
             filename = ".".join(filename.split(".")[:-1])
-            suite_name = f"{str(filename)}.warning"
+            suite_name = f"{filename}.warning"
         except (OSError, IndexError):
             suite_name = "warning"
     else:
@@ -296,8 +296,7 @@ Great Expectations will create a new Expectation Suite '{:s}' and store it here:
 
 
 def launch_jupyter_notebook(notebook_path: str) -> None:
-    jupyter_command_override = os.getenv("GE_JUPYTER_CMD", None)
-    if jupyter_command_override:
+    if jupyter_command_override := os.getenv("GE_JUPYTER_CMD", None):
         subprocess.call(f"{jupyter_command_override} {notebook_path}", shell=True)
     else:
         subprocess.call(["jupyter", "notebook", notebook_path])
@@ -309,8 +308,8 @@ def load_batch(
     batch_kwargs: Union[dict, BatchKwargs],
 ) -> Union[Batch, DataAsset]:
     batch: Union[Batch, DataAsset] = context.get_batch(batch_kwargs, suite)
-    assert isinstance(batch, DataAsset) or isinstance(
-        batch, Batch
+    assert isinstance(
+        batch, (DataAsset, Batch)
     ), "Batch failed to load. Please check your batch_kwargs"
     return batch
 
@@ -327,11 +326,9 @@ def load_expectation_suite(
     Handles a suite name with or without `.json`
     :param usage_event:
     """
-    if suite_name.endswith(".json"):
-        suite_name = suite_name[:-5]
+    suite_name = suite_name.removesuffix(".json")
     try:
-        suite = context.get_expectation_suite(suite_name)
-        return suite
+        return context.get_expectation_suite(suite_name)
     except ge_exceptions.DataContextError:
         exit_with_failure_message_and_stats(
             context,
@@ -425,7 +422,7 @@ def load_data_context_with_error_handling(
         ge_config_version: int = context.get_config().config_version
         if (
             from_cli_upgrade_command
-            and int(ge_config_version) < CURRENT_GE_CONFIG_VERSION
+            and ge_config_version < CURRENT_GE_CONFIG_VERSION
         ):
             directory = directory or context.root_directory
             (
@@ -546,7 +543,6 @@ def upgrade_project_up_to_one_version_increment(
     upgrade_helper_class = GE_UPGRADE_HELPER_VERSION_MAP.get(int(ge_config_version))
     if not upgrade_helper_class:
         return False, False
-    target_ge_config_version = int(ge_config_version) + 1
     # set version temporarily to CURRENT_GE_CONFIG_VERSION to get functional DataContext
     DataContext.set_ge_config_version(
         config_version=CURRENT_GE_CONFIG_VERSION,
@@ -584,6 +580,7 @@ def upgrade_project_up_to_one_version_increment(
             return False, True
         # set config version to target version
         if increment_version:
+            target_ge_config_version = int(ge_config_version) + 1
             DataContext.set_ge_config_version(
                 target_ge_config_version,
                 context_root_dir,

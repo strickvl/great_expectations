@@ -11,7 +11,7 @@ import click
 
 try:
     from pybigquery.parse_url import parse_url as parse_bigquery_url
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     parse_bigquery_url = None
 
 import great_expectations.exceptions as ge_exceptions
@@ -338,12 +338,6 @@ What data would you like Great Expectations to connect to?
     2. Relational database (SQL)
 """
 
-    msg_prompt_files_compute_engine = """
-What are you processing your files with?
-    1. Pandas
-    2. PySpark
-"""
-
     data_source_location_selection = click.prompt(
         msg_prompt_where_is_your_data, type=click.Choice(["1", "2"]), show_choices=False
     )
@@ -352,6 +346,12 @@ What are you processing your files with?
     data_source_type = None
 
     if data_source_location_selection == "1":
+        msg_prompt_files_compute_engine = """
+What are you processing your files with?
+    1. Pandas
+    2. PySpark
+"""
+
         data_source_compute_selection = click.prompt(
             msg_prompt_files_compute_engine,
             type=click.Choice(["1", "2"]),
@@ -404,11 +404,7 @@ def _add_pandas_datasource(
         if path.startswith("./"):
             path = path[2:]
 
-        if path.endswith("/"):
-            basenamepath = path[:-1]
-        else:
-            basenamepath = path
-
+        basenamepath = path[:-1] if path.endswith("/") else path
         datasource_name = f"{os.path.basename(basenamepath)}__dir"
         if prompt_for_datasource_name:
             datasource_name = click.prompt(
@@ -622,21 +618,21 @@ def _should_hide_input():
     This is a workaround to help identify Windows and adjust the prompts accordingly
     since hidden prompts may freeze in certain Windows terminals
     """
-    if "windows" in platform.platform().lower():
-        return False
-    return True
+    return "windows" not in platform.platform().lower()
 
 
 def _collect_postgres_credentials(default_credentials=None):
     if default_credentials is None:
         default_credentials = {}
 
-    credentials = {"drivername": "postgresql"}
+    credentials = {
+        "drivername": "postgresql",
+        "host": click.prompt(
+            "What is the host for the postgres connection?",
+            default=default_credentials.get("host", "localhost"),
+        ).strip(),
+    }
 
-    credentials["host"] = click.prompt(
-        "What is the host for the postgres connection?",
-        default=default_credentials.get("host", "localhost"),
-    ).strip()
     credentials["port"] = click.prompt(
         "What is the port for the postgres connection?",
         default=default_credentials.get("port", "5432"),
@@ -665,8 +661,6 @@ def _collect_postgres_credentials(default_credentials=None):
 def _collect_snowflake_credentials(default_credentials=None):
     if default_credentials is None:
         default_credentials = {}
-    credentials = {"drivername": "snowflake"}
-
     auth_method = click.prompt(
         """What authentication method would you like to use?
     1. User and Password
@@ -677,11 +671,13 @@ def _collect_snowflake_credentials(default_credentials=None):
         show_choices=False,
     )
 
-    credentials["username"] = click.prompt(
-        "What is the user login name for the snowflake connection?",
-        default=default_credentials.get("username", ""),
-    ).strip()
-
+    credentials = {
+        "drivername": "snowflake",
+        "username": click.prompt(
+            "What is the user login name for the snowflake connection?",
+            default=default_credentials.get("username", ""),
+        ).strip(),
+    }
     credentials["host"] = click.prompt(
         "What is the account name for the snowflake connection (include region -- ex "
         "'ABCD.us-east-1')?",
@@ -728,22 +724,19 @@ def _collect_snowflake_credentials(default_credentials=None):
 
 
 def _collect_snowflake_credentials_user_password():
-    credentials = {}
-
-    credentials["password"] = click.prompt(
-        "What is the password for the snowflake connection?",
-        default="",
-        show_default=False,
-        hide_input=True,
-    )
-
-    return credentials
+    return {
+        "password": click.prompt(
+            "What is the password for the snowflake connection?",
+            default="",
+            show_default=False,
+            hide_input=True,
+        )
+    }
 
 
 def _collect_snowflake_credentials_sso():
-    credentials = {}
+    credentials = {"connect_args": {}}
 
-    credentials["connect_args"] = {}
     credentials["connect_args"]["authenticator"] = click.prompt(
         "Valid okta URL or 'externalbrowser' used to connect through SSO",
         default="externalbrowser",
@@ -754,12 +747,12 @@ def _collect_snowflake_credentials_sso():
 
 
 def _collect_snowflake_credentials_key_pair():
-    credentials = {}
-
-    credentials["private_key_path"] = click.prompt(
-        "Path to the private key used for authentication",
-        show_default=False,
-    )
+    credentials = {
+        "private_key_path": click.prompt(
+            "Path to the private key used for authentication",
+            show_default=False,
+        )
+    }
 
     credentials["private_key_passphrase"] = click.prompt(
         "Passphrase for the private key used for authentication (optional -- leave blank for none)",
@@ -777,9 +770,7 @@ def _collect_bigquery_credentials(default_credentials=None):
 """,
         show_default=False,
     ).strip()
-    credentials = {"url": sqlalchemy_url}
-
-    return credentials
+    return {"url": sqlalchemy_url}
 
 
 def _collect_mysql_credentials(default_credentials=None):
@@ -790,12 +781,14 @@ def _collect_mysql_credentials(default_credentials=None):
     if default_credentials is None:
         default_credentials = {}
 
-    credentials = {"drivername": "mysql+pymysql"}
+    credentials = {
+        "drivername": "mysql+pymysql",
+        "host": click.prompt(
+            "What is the host for the MySQL connection?",
+            default=default_credentials.get("host", "localhost"),
+        ).strip(),
+    }
 
-    credentials["host"] = click.prompt(
-        "What is the host for the MySQL connection?",
-        default=default_credentials.get("host", "localhost"),
-    ).strip()
     credentials["port"] = click.prompt(
         "What is the port for the MySQL connection?",
         default=default_credentials.get("port", "3306"),
@@ -826,14 +819,14 @@ def _collect_redshift_credentials(default_credentials=None):
     if default_credentials is None:
         default_credentials = {}
 
-    credentials = {"drivername": "postgresql+psycopg2"}
+    credentials = {
+        "drivername": "postgresql+psycopg2",
+        "host": click.prompt(
+            "What is the host for the Redshift connection?",
+            default=default_credentials.get("host", ""),
+        ).strip(),
+    }
 
-    # required
-
-    credentials["host"] = click.prompt(
-        "What is the host for the Redshift connection?",
-        default=default_credentials.get("host", ""),
-    ).strip()
     credentials["port"] = click.prompt(
         "What is the port for the Redshift connection?",
         default=default_credentials.get("port", "5439"),
@@ -899,11 +892,7 @@ def _add_spark_datasource(
         if path.startswith("./"):
             path = path[2:]
 
-        if path.endswith("/"):
-            basenamepath = path[:-1]
-        else:
-            basenamepath = path
-
+        basenamepath = path[:-1] if path.endswith("/") else path
         datasource_name = f"{os.path.basename(basenamepath)}__dir"
         if prompt_for_datasource_name:
             datasource_name = click.prompt(
@@ -946,18 +935,16 @@ Great Expectations will now add a new Datasource '{:s}' to your deployment, by a
 def select_batch_kwargs_generator(
     context, datasource_name, available_data_assets_dict=None
 ):
-    msg_prompt_select_generator = "Select batch kwarg generator"
-
     if available_data_assets_dict is None:
         available_data_assets_dict = context.get_available_data_asset_names(
             datasource_names=datasource_name
         )
 
-    available_data_asset_names_by_generator = {}
-    for key, value in available_data_assets_dict[datasource_name].items():
-        if len(value["names"]) > 0:
-            available_data_asset_names_by_generator[key] = value["names"]
-
+    available_data_asset_names_by_generator = {
+        key: value["names"]
+        for key, value in available_data_assets_dict[datasource_name].items()
+        if len(value["names"]) > 0
+    }
     if len(available_data_asset_names_by_generator.keys()) == 0:
         return None
     elif len(available_data_asset_names_by_generator.keys()) == 1:
@@ -970,6 +957,8 @@ def select_batch_kwargs_generator(
                 for i, generator_name in enumerate(generator_names, 1)
             ]
         )
+        msg_prompt_select_generator = "Select batch kwarg generator"
+
         option_selection = click.prompt(
             f"{msg_prompt_select_generator}\n{choices}",
             type=click.Choice(
@@ -977,9 +966,7 @@ def select_batch_kwargs_generator(
             ),
             show_choices=False,
         )
-        batch_kwargs_generator_name = generator_names[int(option_selection) - 1]
-
-        return batch_kwargs_generator_name
+        return generator_names[int(option_selection) - 1]
 
 
 # TODO this method needs testing
@@ -1043,11 +1030,9 @@ def get_batch_kwargs(
     # let's ask the generator to build batch kwargs for this asset - we are done.
     if batch_kwargs_generator_name is not None and data_asset_name is not None:
         generator = data_source.get_batch_kwargs_generator(batch_kwargs_generator_name)
-        batch_kwargs = generator.build_batch_kwargs(
+        return generator.build_batch_kwargs(
             data_asset_name, **additional_batch_kwargs
         )
-        return batch_kwargs
-
     if isinstance(
         context.get_datasource(datasource_name), (PandasDatasource, SparkDFDatasource)
     ):
@@ -1084,20 +1069,9 @@ def _get_batch_kwargs_from_generator_or_from_file_path(
     if additional_batch_kwargs is None:
         additional_batch_kwargs = {}
 
-    msg_prompt_generator_or_file_path = """
-Would you like to:
-    1. choose from a list of data assets in this datasource
-    2. enter the path of a data file
-"""
     msg_prompt_file_path = """
 Enter the path of a data file (relative or absolute, s3a:// and gs:// paths are ok too)
 """
-
-    msg_prompt_enter_data_asset_name = "\nWhich data would you like to use?\n"
-
-    msg_prompt_enter_data_asset_name_suffix = (
-        "    Don't see the name of the data asset in the list above? Just type it\n"
-    )
 
     msg_prompt_file_type = """
 We could not determine the format of the file. What is it?
@@ -1122,6 +1096,11 @@ We could not determine the format of the file. What is it?
     if batch_kwargs_generator_name is not None:
         generator = datasource.get_batch_kwargs_generator(batch_kwargs_generator_name)
 
+        msg_prompt_generator_or_file_path = """
+Would you like to:
+    1. choose from a list of data assets in this datasource
+    2. enter the path of a data file
+"""
         option_selection = click.prompt(
             msg_prompt_generator_or_file_path,
             type=click.Choice(["1", "2"]),
@@ -1144,6 +1123,12 @@ We could not determine the format of the file. What is it?
                     for i, name in enumerate(data_asset_names_to_display, 1)
                 ]
             )
+            msg_prompt_enter_data_asset_name = "\nWhich data would you like to use?\n"
+
+            msg_prompt_enter_data_asset_name_suffix = (
+                "    Don't see the name of the data asset in the list above? Just type it\n"
+            )
+
             prompt = (
                 msg_prompt_enter_data_asset_name
                 + choices
@@ -1232,11 +1217,10 @@ We could not determine the format of the file. What is it?
         else:
             try:
                 batch_kwargs["reader_method"] = reader_method
-                reader_options = {
+                if reader_options := {
                     **batch_kwargs.get("reader_options", {}),
                     **reader_options,
-                }
-                if reader_options:
+                }:
                     batch_kwargs["reader_options"] = reader_options
                 if isinstance(datasource, SparkDFDatasource) and reader_method == "csv":
                     header_row = click.confirm(
@@ -1282,7 +1266,6 @@ def _get_default_schema(datasource):
 def _get_batch_kwargs_for_sqlalchemy_datasource(
     context, datasource_name, additional_batch_kwargs=None
 ):
-    data_asset_name = None
     sql_query = None
     datasource = context.get_datasource(datasource_name)
     msg_prompt_how_to_connect_to_data = """
@@ -1294,6 +1277,7 @@ You have selected a datasource that is a SQL database. How would you like to spe
     default_schema = _get_default_schema(datasource)
     temp_generator = TableBatchKwargsGenerator(name="temp", datasource=datasource)
 
+    data_asset_name = None
     while data_asset_name is None:
         single_or_multiple_data_asset_selection = click.prompt(
             msg_prompt_how_to_connect_to_data,
@@ -1353,13 +1337,10 @@ Would you like to continue?"""
                         print(
                             f"You have specified {selection}, which is an incorrect index"
                         )
-                        pass
                 except ValueError:
                     print(
                         f"You have specified {selection}, which is an incorrect value"
                     )
-                    pass
-
     if additional_batch_kwargs is None:
         additional_batch_kwargs = {}
 
@@ -1376,8 +1357,7 @@ Would you like to continue?"""
 
         # bigquery also requires special handling
         bigquery_temp_table = click.prompt(
-            "Great Expectations will create a table to use for "
-            "validation." + os.linesep + "Please enter a name for this table: ",
+            f"Great Expectations will create a table to use for validation.{os.linesep}Please enter a name for this table: ",
             default=f"SOME_PROJECT.SOME_DATASET.ge_tmp_{str(uuid.uuid4())[:8]}",
         )
         temp_table_kwargs = {

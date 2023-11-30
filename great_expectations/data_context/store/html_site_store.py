@@ -307,15 +307,14 @@ class HtmlSiteStore:
                 )
             else:
                 return store_backend.get_public_url_for_key(key)
+        elif only_if_exists:
+            return (
+                store_backend.get_url_for_key(key)
+                if store_backend.has_key(key)
+                else None
+            )
         else:
-            if only_if_exists:
-                return (
-                    store_backend.get_url_for_key(key)
-                    if store_backend.has_key(key)
-                    else None
-                )
-            else:
-                return store_backend.get_url_for_key(key)
+            return store_backend.get_url_for_key(key)
 
     def _validate_key(self, key):
         if not isinstance(key, SiteSectionIdentifier):
@@ -390,8 +389,9 @@ class HtmlSiteStore:
         # installed into a zip file (see PEP 273) and we need to run this function again
         if ".zip" in static_assets_source_dir.lower():
             unzip_destdir = tempfile.mkdtemp()
-            unzipped_ok = self._unzip_assets(static_assets_source_dir, unzip_destdir)
-            if unzipped_ok:
+            if unzipped_ok := self._unzip_assets(
+                static_assets_source_dir, unzip_destdir
+            ):
                 return self.copy_static_assets(unzip_destdir)
 
         for item in os.listdir(static_assets_source_dir):
@@ -402,7 +402,6 @@ class HtmlSiteStore:
                 # Recurse
                 new_source_dir = os.path.join(static_assets_source_dir, item)
                 self.copy_static_assets(new_source_dir)
-            # File
             else:
                 # Copy file over using static assets store backend
                 if item in file_exclusions:
@@ -421,9 +420,7 @@ class HtmlSiteStore:
                         else:
                             # fallback
                             logger.warning(
-                                "Unable to automatically determine content_type for {}".format(
-                                    source_name
-                                )
+                                f"Unable to automatically determine content_type for {source_name}"
                             )
                             content_type = "text/html; charset=utf8"
 
@@ -450,13 +447,11 @@ class HtmlSiteStore:
 
         static_assets_source_absdir = os.path.abspath(assets_full_path)
 
-        zip_re = re.match(
+        if zip_re := re.match(
             f"(.+[.]zip){re.escape(os.sep)}(.+)",
             static_assets_source_absdir,
             flags=re.IGNORECASE,
-        )
-
-        if zip_re:
+        ):
             zip_filename = zip_re.groups()[0]  # e.g.: /home/joe/libs/my_python_libs.zip
             path_in_zip = zip_re.groups()[1]  # great_expectations/render/view/static
             if is_zipfile(zip_filename):
@@ -476,9 +471,4 @@ class HtmlSiteStore:
         return self._config
 
     def self_check(self, pretty_print: bool = True) -> dict:
-        report_object = self._config
-
-        # Chetan - 20200126 - The actual pretty printing and self check mechanism is
-        # open to implement. This is simply added to adhere to `test_test_yaml_config_supported_types_have_self_check`
-
-        return report_object
+        return self._config

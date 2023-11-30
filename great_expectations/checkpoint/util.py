@@ -36,7 +36,7 @@ def send_slack_notification(
     try:
         response = session.post(url=url, headers=headers, json=query)
     except requests.ConnectionError:
-        logger.warning(f"Failed to connect to Slack webhook after {10} retries.")
+        logger.warning('Failed to connect to Slack webhook after 10 retries.')
     except Exception as e:
         logger.error(str(e))
     else:
@@ -94,14 +94,13 @@ def send_microsoft_teams_notifications(query, microsoft_teams_webhook):
     except Exception as e:
         logger.error(str(e))
     else:
-        if response.status_code != 200:
-            logger.warning(
-                "Request to Microsoft Teams webhook "
-                f"returned error {response.status_code}: {response.text}"
-            )
-            return
-        else:
+        if response.status_code == 200:
             return "Microsoft Teams notification succeeded."
+        logger.warning(
+            "Request to Microsoft Teams webhook "
+            f"returned error {response.status_code}: {response.text}"
+        )
+        return
 
 
 def send_webhook_notifications(query, webhook, target_platform):
@@ -214,10 +213,10 @@ def get_substituted_batch_request(
 ) -> Optional[Union[BatchRequest, RuntimeBatchRequest]]:
     substituted_runtime_batch_request = substituted_runtime_config.get("batch_request")
 
-    if substituted_runtime_batch_request is None and validation_batch_request is None:
-        return None
-
     if substituted_runtime_batch_request is None:
+        if validation_batch_request is None:
+            return None
+
         substituted_runtime_batch_request = {}
 
     if validation_batch_request is None:
@@ -414,8 +413,8 @@ def get_updated_action_list(
 
     for other_action in other_action_list:
         other_action_name = other_action["name"]
-        if other_action_name in base_action_list_dict:
-            if not other_action["action"]:
+        if not other_action["action"]:
+            if other_action_name in base_action_list_dict:
                 base_action_list_dict.pop(other_action_name)
 
     return list(base_action_list_dict.values())
@@ -425,7 +424,7 @@ def batch_request_in_validations_contains_batch_data(
     validations: Optional[List[dict]] = None,
 ) -> bool:
     if validations is not None:
-        for idx, val in enumerate(validations):
+        for val in validations:
             if (
                 val.get("batch_request") is not None
                 and val["batch_request"].get("runtime_parameters") is not None
@@ -470,13 +469,12 @@ def send_cloud_notification(url: str, headers: dict):
     try:
         response = session.post(url=url, headers=headers)
     except requests.ConnectionError:
-        logger.error(f"Failed to connect to Cloud backend after {10} retries.")
+        logger.error('Failed to connect to Cloud backend after 10 retries.')
     except Exception as e:
         logger.error(str(e))
     else:
-        if response.status_code != 200:
-            message = f"Cloud Notification request returned error {response.status_code}: {response.text}"
-            logger.error(message)
-            return {"cloud_notification_result": message}
-        else:
+        if response.status_code == 200:
             return {"cloud_notification_result": "Cloud notification succeeded."}
+        message = f"Cloud Notification request returned error {response.status_code}: {response.text}"
+        logger.error(message)
+        return {"cloud_notification_result": message}

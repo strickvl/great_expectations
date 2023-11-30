@@ -134,12 +134,11 @@ class GlobReaderBatchKwargsGenerator(BatchKwargsGenerator):
 
         glob_config = self._get_data_asset_config(data_asset_name)
         batch_paths = self._get_data_asset_paths(data_asset_name=data_asset_name)
-        partition_ids = [
+        return [
             self._partitioner(path, glob_config)
             for path in batch_paths
             if self._partitioner(path, glob_config) is not None
         ]
-        return partition_ids
 
     def _build_batch_kwargs(self, batch_parameters):
         try:
@@ -150,31 +149,25 @@ class GlobReaderBatchKwargsGenerator(BatchKwargsGenerator):
                 batch_kwargs=batch_parameters,
             )
 
-        partition_id = batch_parameters.pop("partition_id", None)
-
-        if partition_id:
-            glob_config = self._get_data_asset_config(data_asset_name)
-            batch_paths = self._get_data_asset_paths(data_asset_name=data_asset_name)
-            path = [
-                path
-                for path in batch_paths
-                if self._partitioner(path, glob_config) == partition_id
-            ]
-            if len(path) != 1:
-                raise BatchKwargsError(
-                    "Unable to identify partition %s for asset %s"
-                    % (partition_id, data_asset_name),
-                    {data_asset_name: data_asset_name, partition_id: partition_id},
-                )
-            batch_kwargs = self._build_batch_kwargs_from_path(
-                path[0], glob_config, **batch_parameters
-            )
-            return batch_kwargs
-
-        else:
+        if not (partition_id := batch_parameters.pop("partition_id", None)):
             return self.yield_batch_kwargs(
                 data_asset_name=data_asset_name, **batch_parameters
             )
+        glob_config = self._get_data_asset_config(data_asset_name)
+        batch_paths = self._get_data_asset_paths(data_asset_name=data_asset_name)
+        path = [
+            path
+            for path in batch_paths
+            if self._partitioner(path, glob_config) == partition_id
+        ]
+        if len(path) != 1:
+            raise BatchKwargsError(
+                f"Unable to identify partition {partition_id} for asset {data_asset_name}",
+                {data_asset_name: data_asset_name, partition_id: partition_id},
+            )
+        return self._build_batch_kwargs_from_path(
+            path[0], glob_config, **batch_parameters
+        )
 
     def _get_data_asset_paths(self, data_asset_name):
         """

@@ -178,7 +178,7 @@ def build_gallery(
         requirements_dict = {}
         for root, dirs, files in os.walk(contrib_experimental_dir):
             for file in files:
-                if file.endswith(".py") and not file == "__init__.py":
+                if file.endswith(".py") and file != "__init__.py":
                     logger.debug(f"Getting requirements for module {file}")
                     requirements_dict[file[:-3]] = get_contrib_requirements(
                         os.path.join(root, file)
@@ -195,7 +195,8 @@ def build_gallery(
                 parsed_requirements = pkg_resources.parse_requirements(requirements)
                 for req in parsed_requirements:
                     is_satisfied = any(
-                        [installed_pkg in req for installed_pkg in installed_packages]
+                        installed_pkg in req
+                        for installed_pkg in installed_packages
                     )
                     if is_satisfied:
                         continue

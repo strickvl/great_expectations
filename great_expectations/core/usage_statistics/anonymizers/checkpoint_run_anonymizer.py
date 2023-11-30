@@ -160,18 +160,10 @@ class CheckpointRunAnonymizer(Anonymizer):
 
         run_id: Optional[Union[str, RunIdentifier]] = kwargs.get("run_id")
         anonymized_run_id: Optional[Union[str, RunIdentifier]]
-        if run_id is None:
-            anonymized_run_id = None
-        else:
-            anonymized_run_id = self.anonymize(str(run_id))
-
+        anonymized_run_id = None if run_id is None else self.anonymize(str(run_id))
         run_name: Optional[str] = kwargs.get("run_name")
         anonymized_run_name: Optional[str]
-        if run_name is None:
-            anonymized_run_name = None
-        else:
-            anonymized_run_name = self.anonymize(run_name)
-
+        anonymized_run_name = None if run_name is None else self.anonymize(run_name)
         run_time: Optional[Union[str, datetime.datetime]] = kwargs.get("run_time")
         anonymized_run_time: Optional[str]
         if run_time is None:
@@ -191,8 +183,7 @@ class CheckpointRunAnonymizer(Anonymizer):
             )
 
         for attribute_name in sorted(CHECKPOINT_OPTIONAL_TOP_LEVEL_KEYS):
-            attribute_value = kwargs.get(attribute_name)
-            if attribute_value:
+            if attribute_value := kwargs.get(attribute_name):
                 checkpoint_optional_top_level_keys.append(attribute_name)
 
         anonymized_checkpoint_run_properties_dict: Dict[str, List[str]] = {

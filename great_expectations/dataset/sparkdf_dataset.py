@@ -671,18 +671,14 @@ class SparkDFDataset(MetaSparkDFDataset):
         if parse_strings_as_datetimes:
             temp_column = self._apply_dateutil_parse(temp_column)
         result = temp_column.agg({column: "max"}).collect()
-        if not result or not result[0]:
-            return None
-        return result[0][0]
+        return None if not result or not result[0] else result[0][0]
 
     def get_column_min(self, column, parse_strings_as_datetimes=False):
         temp_column = self.spark_df.select(column).where(col(column).isNotNull())
         if parse_strings_as_datetimes:
             temp_column = self._apply_dateutil_parse(temp_column)
         result = temp_column.agg({column: "min"}).collect()
-        if not result or not result[0]:
-            return None
-        return result[0][0]
+        return None if not result or not result[0] else result[0][0]
 
     def get_column_value_counts(self, column, sort="value", collate=None):
         if sort not in ["value", "count", "none"]:
@@ -700,12 +696,13 @@ class SparkDFDataset(MetaSparkDFDataset):
         elif sort == "count":
             value_counts = value_counts.orderBy(desc("count"))
         value_counts = value_counts.collect()
-        series = pd.Series(
+        return pd.Series(
             [row["count"] for row in value_counts],
-            index=pd.Index(data=[row[column] for row in value_counts], name="value"),
+            index=pd.Index(
+                data=[row[column] for row in value_counts], name="value"
+            ),
             name="count",
         )
-        return series
 
     def get_column_unique_count(self, column):
         return self.spark_df.agg(countDistinct(column)).collect()[0][0]
@@ -752,14 +749,14 @@ class SparkDFDataset(MetaSparkDFDataset):
         bins = list(
             copy.deepcopy(bins)
         )  # take a copy since we are inserting and popping
-        if bins[0] == -np.inf or bins[0] == -float("inf"):
+        if bins[0] in [-np.inf, -float("inf")]:
             added_min = False
             bins[0] = -float("inf")
         else:
             added_min = True
             bins.insert(0, -float("inf"))
 
-        if bins[-1] == np.inf or bins[-1] == float("inf"):
+        if bins[-1] in [np.inf, float("inf")]:
             added_max = False
             bins[-1] = float("inf")
         else:
@@ -1240,7 +1237,7 @@ class SparkDFDataset(MetaSparkDFDataset):
                     types.append(type_class)
                 except AttributeError:
                     logger.debug(f"Unrecognized type: {type_}")
-            if len(types) == 0:
+            if not types:
                 raise ValueError("No recognized spark types in type_list")
             types = tuple(types)
             success = issubclass(col_type, types)
@@ -1467,13 +1464,10 @@ class SparkDFDataset(MetaSparkDFDataset):
     ):
         # Might want to throw an exception if only 1 column is passed
         column_names = column_list.schema.names[:]
-        conditions = []
-        for i in range(0, len(column_names) - 1):
-            # Negate the `eqNullSafe` result and append to the conditions.
-            conditions.append(
-                ~(col(column_names[i]).eqNullSafe(col(column_names[i + 1])))
-            )
-
+        conditions = [
+            ~(col(column_names[i]).eqNullSafe(col(column_names[i + 1])))
+            for i in range(0, len(column_names) - 1)
+        ]
         return column_list.withColumn(
             "__success", reduce(lambda a, b: a & b, conditions)
         )

@@ -787,10 +787,6 @@ def get_batch_request_from_acceptable_arguments(
 
         if batch_identifiers is None:
             batch_identifiers = kwargs
-        else:
-            # Raise a warning if kwargs exist
-            pass
-
         batch_request_as_dict = {
             "datasource_name": datasource_name,
             "data_connector_name": data_connector_name,
@@ -816,12 +812,8 @@ def get_batch_request_from_acceptable_arguments(
                     'your code. Falling back on provided "batch_identifiers".'
                 )
                 batch_filter_parameters = batch_identifiers
-            elif batch_filter_parameters is None and batch_identifiers is None:
+            elif batch_filter_parameters is None:
                 batch_filter_parameters = kwargs
-            else:
-                # Raise a warning if kwargs exist
-                pass
-
             data_connector_query_params: dict = {
                 "batch_filter_parameters": batch_filter_parameters,
                 "limit": limit,
@@ -893,7 +885,7 @@ def standardize_batch_request_display_ordering(
             "batch_identifiers": batch_identifiers,
             **batch_request,
         }
-    elif runtime_parameters is not None and batch_identifiers is None:
+    elif runtime_parameters is not None:
         batch_request = {
             "datasource_name": datasource_name,
             "data_connector_name": data_connector_name,
@@ -901,7 +893,7 @@ def standardize_batch_request_display_ordering(
             "runtime_parameters": runtime_parameters,
             **batch_request,
         }
-    elif runtime_parameters is None and batch_identifiers is not None:
+    elif batch_identifiers is not None:
         batch_request = {
             "datasource_name": datasource_name,
             "data_connector_name": data_connector_name,

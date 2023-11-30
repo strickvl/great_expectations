@@ -798,7 +798,7 @@ class DataAsset:
                 "%Y%m%dT%H%M%S.%fZ"
             )
 
-            assert not (run_id and run_name) and not (
+            assert (not run_id or not run_name) and not (
                 run_id and run_time
             ), "Please provide either a run_id or run_name and/or run_time."
             if isinstance(run_id, str) and not run_name:
@@ -852,8 +852,7 @@ class DataAsset:
                     raise
                 except OSError:
                     raise GreatExpectationsError(
-                        "Unable to load expectation suite: IO error while reading %s"
-                        % expectation_suite
+                        f"Unable to load expectation suite: IO error while reading {expectation_suite}"
                     )
             elif isinstance(expectation_suite, dict):
                 expectation_suite_dict: dict = expectation_suite
@@ -926,8 +925,8 @@ class DataAsset:
                 columns[column].append(expectation)
 
             expectations_to_evaluate = []
-            for col in columns:
-                expectations_to_evaluate.extend(columns[col])
+            for value in columns.values():
+                expectations_to_evaluate.extend(value)
 
             for expectation in expectations_to_evaluate:
 
@@ -958,21 +957,20 @@ class DataAsset:
                     )
 
                 except Exception as err:
-                    if catch_exceptions:
-                        raised_exception = True
-                        exception_traceback = traceback.format_exc()
-
-                        result = ExpectationValidationResult(
-                            success=False,
-                            exception_info={
-                                "raised_exception": raised_exception,
-                                "exception_traceback": exception_traceback,
-                                "exception_message": str(err),
-                            },
-                        )
-
-                    else:
+                    if not catch_exceptions:
                         raise err
+
+                    raised_exception = True
+                    exception_traceback = traceback.format_exc()
+
+                    result = ExpectationValidationResult(
+                        success=False,
+                        exception_info={
+                            "raised_exception": raised_exception,
+                            "exception_traceback": exception_traceback,
+                            "exception_message": str(err),
+                        },
+                    )
 
                 # if include_config:
                 result.expectation_config = expectation
@@ -990,10 +988,7 @@ class DataAsset:
             statistics = _calc_validation_statistics(results)
 
             if only_return_failures:
-                abbrev_results = []
-                for exp in results:
-                    if not exp.success:
-                        abbrev_results.append(exp)
+                abbrev_results = [exp for exp in results if not exp.success]
                 results = abbrev_results
 
             expectation_suite_name = expectation_suite.expectation_suite_name
@@ -1173,7 +1168,7 @@ class DataAsset:
             return return_obj
 
         # Try to return the most common values, if possible.
-        if 0 < result_format.get("partial_unexpected_count"):
+        if result_format.get("partial_unexpected_count") > 0:
             try:
                 partial_unexpected_counts = [
                     {"value": key, "count": value}
@@ -1248,9 +1243,9 @@ class DataAsset:
             percent_success = success_count / nonnull_count
 
             if mostly is not None:
-                success = bool(percent_success >= mostly)
+                success = percent_success >= mostly
             else:
-                success = bool(nonnull_count - success_count == 0)
+                success = nonnull_count - success_count == 0
         else:
             success = True
             percent_success = None

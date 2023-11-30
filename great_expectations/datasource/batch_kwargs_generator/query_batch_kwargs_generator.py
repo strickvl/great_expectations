@@ -121,18 +121,17 @@ class QueryBatchKwargsGenerator(BatchKwargsGenerator):
             # There is no valid query path or temp query storage defined with the data_asset_name
             return None
 
-        if query_parameters is None:
-            iter_ = iter([SqlAlchemyDatasourceQueryBatchKwargs(query=raw_query)])
-        else:
-            iter_ = iter(
+        return (
+            iter([SqlAlchemyDatasourceQueryBatchKwargs(query=raw_query)])
+            if query_parameters is None
+            else iter(
                 [
                     SqlAlchemyDatasourceQueryBatchKwargs(
                         query=raw_query, query_parameters=query_parameters
                     )
                 ]
             )
-
-        return iter_
+        )
 
     # TODO: deprecate generator_asset argument, remove default on query arg
     def add_query(self, generator_asset=None, query=None, data_asset_name=None):

@@ -148,12 +148,11 @@ class LegacyDatasource:
         """
         verify_dynamic_loading_support(module_name=module_name)
         class_ = load_class(class_name=class_name, module_name=module_name)
-        configuration = class_.build_configuration(
+        return class_.build_configuration(
             data_asset_type=data_asset_type,
             batch_kwargs_generators=batch_kwargs_generators,
             **kwargs
         )
-        return configuration
 
     def __init__(
         self,
@@ -241,21 +240,20 @@ class LegacyDatasource:
 
     def _build_batch_kwargs_generator(self, **kwargs):
         """Build a BatchKwargGenerator using the provided configuration and return the newly-built generator."""
-        generator = instantiate_class_from_config(
+        if generator := instantiate_class_from_config(
             config=kwargs,
             runtime_environment={"datasource": self},
             config_defaults={
                 "module_name": "great_expectations.datasource.batch_kwargs_generator"
             },
-        )
-        if not generator:
+        ):
+            return generator
+        else:
             raise ClassInstantiationError(
                 module_name="great_expectations.datasource.batch_kwargs_generator",
                 package_name=None,
                 class_name=kwargs["class_name"],
             )
-
-        return generator
 
     def get_batch_kwargs_generator(self, name):
         """Get the (named) BatchKwargGenerator from a datasource
@@ -277,8 +275,7 @@ class LegacyDatasource:
             )
         else:
             raise ValueError(
-                "Unable to load batch kwargs generator %s -- no configuration found or invalid configuration."
-                % name
+                f"Unable to load batch kwargs generator {name} -- no configuration found or invalid configuration."
             )
         generator = self._build_batch_kwargs_generator(**generator_config)
         self._batch_kwargs_generators[name] = generator
@@ -293,11 +290,12 @@ class LegacyDatasource:
         generators = []
 
         if "batch_kwargs_generators" in self._datasource_config:
-            for key, value in self._datasource_config[
-                "batch_kwargs_generators"
-            ].items():
-                generators.append({"name": key, "class_name": value["class_name"]})
-
+            generators.extend(
+                {"name": key, "class_name": value["class_name"]}
+                for key, value in self._datasource_config[
+                    "batch_kwargs_generators"
+                ].items()
+            )
         return generators
 
     # TODO: move to data connector

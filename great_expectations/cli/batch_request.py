@@ -16,7 +16,7 @@ import click
 
 try:
     from pybigquery.parse_url import parse_url as parse_bigquery_url
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     parse_bigquery_url = None
 
 from great_expectations import exceptions as ge_exceptions
@@ -103,11 +103,7 @@ def get_batch_request(
             f"Datasource '{datasource.name}' of unsupported type {type(datasource)} was encountered."
         )
 
-    batch_request.update(
-        {
-            "data_asset_name": data_asset_name,
-        }
-    )
+    batch_request["data_asset_name"] = data_asset_name
 
     if additional_batch_request_args and isinstance(
         additional_batch_request_args, dict
@@ -133,8 +129,6 @@ def select_data_connector_name(
         Dict[str, List[str]]
     ] = None,
 ) -> Optional[str]:
-    msg_prompt_select_data_connector_name = "Select data_connector"
-
     if not available_data_asset_names_by_data_connector_dict:
         available_data_asset_names_by_data_connector_dict = {}
 
@@ -149,23 +143,26 @@ def select_data_connector_name(
         return list(available_data_asset_names_by_data_connector_dict.keys())[0]
 
     elif num_available_data_asset_names_by_data_connector == 2:
-        # if only default data_connectors are configured, select default_inferred_asset_data_connector
-        default_data_connector = _check_default_data_connectors(
+        if default_data_connector := _check_default_data_connectors(
             available_data_asset_names_by_data_connector_dict
-        )
-        if default_data_connector:
+        ):
             return default_data_connector
 
     data_connector_names: List[str] = list(
         available_data_asset_names_by_data_connector_dict.keys()
     )
-    choices: str = "\n".join(
-        [
-            f"    {i}. {data_connector_name}"
-            for i, data_connector_name in enumerate(data_connector_names, 1)
-        ]
+    choices: str = (
+        "\n".join(
+            [
+                f"    {i}. {data_connector_name}"
+                for i, data_connector_name in enumerate(
+                    data_connector_names, 1
+                )
+            ]
+        )
+        + "\n"
     )
-    choices += "\n"  # Necessary for consistent spacing between prompts
+    msg_prompt_select_data_connector_name = "Select data_connector"
     option_selection: str = click.prompt(
         f"{msg_prompt_select_data_connector_name}\n{choices}",
         type=click.Choice(
@@ -252,7 +249,7 @@ def _list_available_data_asset_names(
         for i in range(0, len(available_data_asset_names_str), PAGE_SIZE)
     ]
 
-    if len(data_asset_pages) == 0:
+    if not data_asset_pages:
         return None
 
     display_idx = 0  # Used to traverse between pages
@@ -359,7 +356,7 @@ You have selected a datasource that is a SQL database. How would you like to spe
             type=click.Choice(["1", "2", "3"]),
             show_choices=False,
         )
-        if single_or_multiple_data_asset_selection == "1":  # name the table and schema
+        if single_or_multiple_data_asset_selection == "1":
             schema_name = click.prompt(
                 "Please provide the schema name of the table (this is optional)",
                 default=default_schema,
@@ -367,11 +364,8 @@ You have selected a datasource that is a SQL database. How would you like to spe
             table_name = click.prompt(
                 "Please provide the table name (this is required)"
             )
-            if schema_name:
-                data_asset_name = f"{schema_name}.{table_name}"
-            else:
-                data_asset_name = table_name
-        elif single_or_multiple_data_asset_selection == "2":  # list it all
+            data_asset_name = f"{schema_name}.{table_name}" if schema_name else table_name
+        elif single_or_multiple_data_asset_selection == "2":
             msg_prompt_warning: str = r"""Warning: If you have a large number of tables in your datasource, this may take a very long time.
 Would you like to continue?"""
             confirmation: str = click.prompt(
@@ -429,18 +423,11 @@ def _get_batch_spec_passthrough(
             SqlAlchemyExecutionEngine, datasource.execution_engine
         )
         if execution_engine.engine.dialect.name.lower() == "bigquery":
-            # bigquery also requires special handling
-            bigquery_temp_table: str = click.prompt(
-                "Great Expectations will create a table to use for "
-                "validation." + os.linesep + "Please enter a name for this table: ",
+            if bigquery_temp_table := click.prompt(
+                f"Great Expectations will create a table to use for validation.{os.linesep}Please enter a name for this table: ",
                 default=f"SOME_PROJECT.SOME_DATASET.ge_tmp_{str(uuid.uuid4())[:8]}",
-            )
-            if bigquery_temp_table:
-                batch_spec_passthrough.update(
-                    {
-                        "bigquery_temp_table": bigquery_temp_table,
-                    }
-                )
+            ):
+                batch_spec_passthrough["bigquery_temp_table"] = bigquery_temp_table
     else:
         raise ge_exceptions.DataContextError(
             "Datasource {:s} of unsupported type {:s} was encountered.".format(

@@ -129,8 +129,7 @@ class S3GlobReaderBatchKwargsGenerator(BatchKwargsGenerator):
         self, data_asset_name, reader_method=None, reader_options=None, limit=None
     ):
         logger.debug(
-            "Beginning S3GlobReaderBatchKwargsGenerator _get_iterator for data_asset_name: %s"
-            % data_asset_name
+            f"Beginning S3GlobReaderBatchKwargsGenerator _get_iterator for data_asset_name: {data_asset_name}"
         )
 
         if data_asset_name not in self._assets:
@@ -175,46 +174,43 @@ class S3GlobReaderBatchKwargsGenerator(BatchKwargsGenerator):
         partition_id = batch_parameters.pop("partition_id", None)
         batch_kwargs = self._datasource.process_batch_parameters(batch_parameters)
 
-        if partition_id:
-            try:
-                asset_config = self._assets[data_asset_name]
-            except KeyError:
-                raise GreatExpectationsError(
-                    f"No asset config found for asset {data_asset_name}"
-                )
-            if data_asset_name not in self._iterators:
-                self._iterators[data_asset_name] = {}
-
-            iterator_dict = self._iterators[data_asset_name]
-            for key in self._get_asset_options(asset_config, iterator_dict):
-                if (
-                    self._partitioner(key=key, asset_config=asset_config)
-                    == partition_id
-                ):
-                    batch_kwargs = self._build_batch_kwargs_from_key(
-                        key=key,
-                        asset_config=asset_config,
-                        reader_options=batch_parameters.get(
-                            "reader_options"
-                        ),  # handled in generator
-                        limit=batch_kwargs.get(
-                            "limit"
-                        ),  # may have been processed from datasource
-                    )
-
-            if batch_kwargs is None:
-                raise BatchKwargsError(
-                    "Unable to identify partition %s for asset %s"
-                    % (partition_id, data_asset_name),
-                    {data_asset_name: data_asset_name, partition_id: partition_id},
-                )
-
-            return batch_kwargs
-
-        else:
+        if not partition_id:
             return self.yield_batch_kwargs(
                 data_asset_name=data_asset_name, **batch_parameters, **batch_kwargs
             )
+        try:
+            asset_config = self._assets[data_asset_name]
+        except KeyError:
+            raise GreatExpectationsError(
+                f"No asset config found for asset {data_asset_name}"
+            )
+        if data_asset_name not in self._iterators:
+            self._iterators[data_asset_name] = {}
+
+        iterator_dict = self._iterators[data_asset_name]
+        for key in self._get_asset_options(asset_config, iterator_dict):
+            if (
+                self._partitioner(key=key, asset_config=asset_config)
+                == partition_id
+            ):
+                batch_kwargs = self._build_batch_kwargs_from_key(
+                    key=key,
+                    asset_config=asset_config,
+                    reader_options=batch_parameters.get(
+                        "reader_options"
+                    ),  # handled in generator
+                    limit=batch_kwargs.get(
+                        "limit"
+                    ),  # may have been processed from datasource
+                )
+
+        if batch_kwargs is None:
+            raise BatchKwargsError(
+                f"Unable to identify partition {partition_id} for asset {data_asset_name}",
+                {data_asset_name: data_asset_name, partition_id: partition_id},
+            )
+
+        return batch_kwargs
 
     def _build_batch_kwargs_from_key(
         self,
@@ -255,13 +251,9 @@ class S3GlobReaderBatchKwargsGenerator(BatchKwargsGenerator):
         directory_assets = asset_config.get("directory_assets", False)
 
         if "continuation_token" in iterator_dict:
-            query_options.update(
-                {"ContinuationToken": iterator_dict["continuation_token"]}
-            )
+            query_options["ContinuationToken"] = iterator_dict["continuation_token"]
 
-        logger.debug(
-            f"Fetching objects from S3 with query options: {str(query_options)}"
-        )
+        logger.debug(f"Fetching objects from S3 with query options: {query_options}")
         asset_options = self._s3.list_objects_v2(**query_options)
         if directory_assets:
             if "CommonPrefixes" not in asset_options:
@@ -276,33 +268,30 @@ class S3GlobReaderBatchKwargsGenerator(BatchKwargsGenerator):
                     },
                 )
             keys = [item["Prefix"] for item in asset_options["CommonPrefixes"]]
-        else:
-            if "Contents" not in asset_options:
-                raise BatchKwargsError(
-                    "Unable to build batch_kwargs. The asset may not be configured correctly. If s3 returned common "
-                    "prefixes it may not have been able to identify desired keys, and they are included in the "
-                    "incomplete batch_kwargs object returned with this error.",
-                    {
-                        "asset_configuration": asset_config,
-                        "common_prefixes": asset_options["CommonPrefixes"]
-                        if "CommonPrefixes" in asset_options
-                        else None,
-                    },
-                )
+        elif "Contents" in asset_options:
             keys = [
                 item["Key"] for item in asset_options["Contents"] if item["Size"] > 0
             ]
 
-        keys = [
-            key
-            for key in filter(
+        else:
+            raise BatchKwargsError(
+                "Unable to build batch_kwargs. The asset may not be configured correctly. If s3 returned common "
+                "prefixes it may not have been able to identify desired keys, and they are included in the "
+                "incomplete batch_kwargs object returned with this error.",
+                {
+                    "asset_configuration": asset_config,
+                    "common_prefixes": asset_options["CommonPrefixes"]
+                    if "CommonPrefixes" in asset_options
+                    else None,
+                },
+            )
+        yield from list(
+            filter(
                 lambda x: re.match(asset_config.get("regex_filter", ".*"), x)
                 is not None,
                 keys,
             )
-        ]
-        yield from keys
-
+        )
         if asset_options["IsTruncated"]:
             iterator_dict["continuation_token"] = asset_options["NextContinuationToken"]
             # Recursively fetch more
@@ -346,11 +335,10 @@ class S3GlobReaderBatchKwargsGenerator(BatchKwargsGenerator):
             self._iterators[data_asset_name] = {}
         iterator_dict = self._iterators[data_asset_name]
         asset_config = self._assets[data_asset_name]
-        available_ids = [
+        return [
             self._partitioner(key=key, asset_config=asset_config)
             for key in self._get_asset_options(asset_config, iterator_dict)
         ]
-        return available_ids
 
     def _partitioner(self, key, asset_config):
         if "partition_regex" in asset_config:

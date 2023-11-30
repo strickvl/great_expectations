@@ -164,13 +164,13 @@ class InferredAssetSqlDataConnector(ConfiguredAssetSqlDataConnector):
                 "table_name": metadata["table_name"],
                 "type": metadata["type"],
             }
-            if not splitter_method is None:
+            if splitter_method is not None:
                 data_asset_config["splitter_method"] = splitter_method
-            if not splitter_kwargs is None:
+            if splitter_kwargs is not None:
                 data_asset_config["splitter_kwargs"] = splitter_kwargs
-            if not sampling_method is None:
+            if sampling_method is not None:
                 data_asset_config["sampling_method"] = sampling_method
-            if not sampling_kwargs is None:
+            if sampling_kwargs is not None:
                 data_asset_config["sampling_kwargs"] = sampling_kwargs
 
             # Attempt to fetch a list of batch_identifiers from the table
@@ -224,21 +224,16 @@ class InferredAssetSqlDataConnector(ConfiguredAssetSqlDataConnector):
             if selected_schema_name is not None and schema_name != selected_schema_name:
                 continue
 
-            for table_name in inspector.get_table_names(schema=schema_name):
-
-                if ignore_information_schemas_and_system_tables and (
-                    table_name in system_tables
-                ):
-                    continue
-
-                tables.append(
-                    {
-                        "schema_name": schema_name,
-                        "table_name": table_name,
-                        "type": "table",
-                    }
-                )
-
+            tables.extend(
+                {
+                    "schema_name": schema_name,
+                    "table_name": table_name,
+                    "type": "table",
+                }
+                for table_name in inspector.get_table_names(schema=schema_name)
+                if not ignore_information_schemas_and_system_tables
+                or table_name not in system_tables
+            )
             # Note Abe 20201112: This logic is currently untested.
             if include_views:
                 # Note: this is not implemented for bigquery
@@ -248,42 +243,36 @@ class InferredAssetSqlDataConnector(ConfiguredAssetSqlDataConnector):
                     # Not implemented by Athena dialect
                     pass
                 else:
-                    for view_name in view_names:
-
-                        if ignore_information_schemas_and_system_tables and (
-                            view_name in system_tables
-                        ):
-                            continue
-
-                        tables.append(
-                            {
-                                "schema_name": schema_name,
-                                "table_name": view_name,
-                                "type": "view",
-                            }
-                        )
-
+                    tables.extend(
+                        {
+                            "schema_name": schema_name,
+                            "table_name": view_name,
+                            "type": "view",
+                        }
+                        for view_name in view_names
+                        if not ignore_information_schemas_and_system_tables
+                        or view_name not in system_tables
+                    )
         # SQLAlchemy's introspection does not list "external tables" in Redshift Spectrum (tables whose data is stored on S3).
         # The following code fetches the names of external schemas and tables from a special table
         # 'svv_external_tables'.
         try:
-            if "redshift" == engine.dialect.name.lower():
+            if engine.dialect.name.lower() == "redshift":
                 result = engine.execute(
                     "select schemaname, tablename from svv_external_tables"
                 ).fetchall()
-                for row in result:
-                    tables.append(
-                        {
-                            "schema_name": row[0],
-                            "table_name": row[1],
-                            "type": "table",
-                        }
-                    )
-
+                tables.extend(
+                    {
+                        "schema_name": row[0],
+                        "table_name": row[1],
+                        "type": "table",
+                    }
+                    for row in result
+                )
         except Exception as e:
             # Our testing shows that 'svv_external_tables' table is present in all Redshift clusters. This means that this
             # exception is highly unlikely to fire.
-            if not "UndefinedTable" in str(e):
+            if "UndefinedTable" not in str(e):
                 raise e
 
         return tables

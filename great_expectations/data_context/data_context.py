@@ -479,8 +479,6 @@ class BaseDataContext(ConfigPeer):
                     # when running in cloud mode, we want to know if a datasource has been improperly configured at
                     # init time.
                     raise
-                else:
-                    pass
 
     def _apply_global_config_overrides(self):
         # check for global usage statistics opt out
@@ -492,44 +490,38 @@ class BaseDataContext(ConfigPeer):
             )
             self.config.anonymous_usage_statistics.enabled = False
 
-        # check for global data_context_id
-        global_data_context_id = self._get_global_config_value(
+        if global_data_context_id := self._get_global_config_value(
             environment_variable="GE_DATA_CONTEXT_ID",
             conf_file_section="anonymous_usage_statistics",
             conf_file_option="data_context_id",
-        )
-        if global_data_context_id:
-            data_context_id_errors = anonymizedUsageStatisticsSchema.validate(
+        ):
+            if data_context_id_errors := anonymizedUsageStatisticsSchema.validate(
                 {"data_context_id": global_data_context_id}
-            )
-            if not data_context_id_errors:
+            ):
+                validation_errors.update(data_context_id_errors)
+            else:
                 logger.info(
                     "data_context_id is defined globally. Applying override to project_config."
                 )
                 self.config.anonymous_usage_statistics.data_context_id = (
                     global_data_context_id
                 )
-            else:
-                validation_errors.update(data_context_id_errors)
-        # check for global usage_statistics url
-        global_usage_statistics_url = self._get_global_config_value(
+        if global_usage_statistics_url := self._get_global_config_value(
             environment_variable="GE_USAGE_STATISTICS_URL",
             conf_file_section="anonymous_usage_statistics",
             conf_file_option="usage_statistics_url",
-        )
-        if global_usage_statistics_url:
-            usage_statistics_url_errors = anonymizedUsageStatisticsSchema.validate(
+        ):
+            if usage_statistics_url_errors := anonymizedUsageStatisticsSchema.validate(
                 {"usage_statistics_url": global_usage_statistics_url}
-            )
-            if not usage_statistics_url_errors:
+            ):
+                validation_errors.update(usage_statistics_url_errors)
+            else:
                 logger.info(
                     "usage_statistics_url is defined globally. Applying override to project_config."
                 )
                 self.config.anonymous_usage_statistics.usage_statistics_url = (
                     global_usage_statistics_url
                 )
-            else:
-                validation_errors.update(usage_statistics_url_errors)
         if validation_errors:
             logger.warning(
                 "The following globally-defined config variables failed validation:\n{}\n\n"
@@ -551,10 +543,9 @@ class BaseDataContext(ConfigPeer):
             for config_path in BaseDataContext.GLOBAL_CONFIG_PATHS:
                 config = configparser.ConfigParser()
                 config.read(config_path)
-                config_value = config.get(
+                if config_value := config.get(
                     conf_file_section, conf_file_option, fallback=None
-                )
-                if config_value:
+                ):
                     return config_value
         return None
 
@@ -566,9 +557,7 @@ class BaseDataContext(ConfigPeer):
                 return True
             else:
                 logger.warning(
-                    "GE_USAGE_STATS environment variable must be one of: {}".format(
-                        BaseDataContext.FALSEY_STRINGS
-                    )
+                    f"GE_USAGE_STATS environment variable must be one of: {BaseDataContext.FALSEY_STRINGS}"
                 )
         for config_path in BaseDataContext.GLOBAL_CONFIG_PATHS:
             config = configparser.ConfigParser()
@@ -681,10 +670,7 @@ class BaseDataContext(ConfigPeer):
     def _normalize_absolute_or_relative_path(self, path):
         if path is None:
             return
-        if os.path.isabs(path):
-            return path
-        else:
-            return os.path.join(self.root_directory, path)
+        return path if os.path.isabs(path) else os.path.join(self.root_directory, path)
 
     def _normalize_store_path(self, resource_store):
         if resource_store["type"] == "filesystem":
@@ -767,21 +753,21 @@ class BaseDataContext(ConfigPeer):
 
     def _load_site_builder_from_site_config(self, site_config) -> SiteBuilder:
         default_module_name = "great_expectations.render.renderer.site_builder"
-        site_builder = instantiate_class_from_config(
+        if site_builder := instantiate_class_from_config(
             config=site_config,
             runtime_environment={
                 "data_context": self,
                 "root_directory": self.root_directory,
             },
             config_defaults={"module_name": default_module_name},
-        )
-        if not site_builder:
+        ):
+            return site_builder
+        else:
             raise ge_exceptions.ClassInstantiationError(
                 module_name=default_module_name,
                 package_name=None,
                 class_name=site_config["class_name"],
             )
-        return site_builder
 
     @usage_statistics_enabled_method(
         event_name="data_context.open_data_docs",
@@ -996,30 +982,29 @@ class BaseDataContext(ConfigPeer):
         """
         if self.ge_cloud_mode:
             return {}
-        config_variables_file_path = cast(
-            DataContextConfig, self.get_config()
-        ).config_variables_file_path
-        if config_variables_file_path:
-            try:
-                # If the user specifies the config variable path with an environment variable, we want to substitute it
-                defined_path = substitute_config_variable(
-                    config_variables_file_path, dict(os.environ)
-                )
-                if not os.path.isabs(defined_path):
-                    # A BaseDataContext will not have a root directory; in that case use the current directory
-                    # for any non-absolute path
-                    root_directory = self.root_directory or os.curdir
-                else:
-                    root_directory = ""
-                var_path = os.path.join(root_directory, defined_path)
-                with open(var_path) as config_variables_file:
-                    return yaml.load(config_variables_file) or {}
-            except OSError as e:
-                if e.errno != errno.ENOENT:
-                    raise
-                logger.debug("Generating empty config variables file.")
-                return {}
-        else:
+        if not (
+            config_variables_file_path := cast(
+                DataContextConfig, self.get_config()
+            ).config_variables_file_path
+        ):
+            return {}
+        try:
+            # If the user specifies the config variable path with an environment variable, we want to substitute it
+            defined_path = substitute_config_variable(
+                config_variables_file_path, dict(os.environ)
+            )
+            root_directory = (
+                self.root_directory or os.curdir
+                if not os.path.isabs(defined_path)
+                else ""
+            )
+            var_path = os.path.join(root_directory, defined_path)
+            with open(var_path) as config_variables_file:
+                return yaml.load(config_variables_file) or {}
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
+            logger.debug("Generating empty config variables file.")
             return {}
 
     def get_config_with_variables_substituted(self, config=None) -> DataContextConfig:
@@ -1088,7 +1073,7 @@ class BaseDataContext(ConfigPeer):
             input value with all `$` characters replaced with the escape string
         """
 
-        if isinstance(value, dict) or isinstance(value, OrderedDict):
+        if isinstance(value, (dict, OrderedDict)):
             return {
                 k: self.escape_all_config_variables(
                     v, dollar_sign_escape_string, skip_if_substitution_variable
@@ -1103,13 +1088,14 @@ class BaseDataContext(ConfigPeer):
                 )
                 for v in value
             ]
-        if skip_if_substitution_variable:
-            if parse_substitution_variable(value) is None:
-                return value.replace("$", dollar_sign_escape_string)
-            else:
-                return value
-        else:
+        if (
+            skip_if_substitution_variable
+            and parse_substitution_variable(value) is None
+            or not skip_if_substitution_variable
+        ):
             return value.replace("$", dollar_sign_escape_string)
+        else:
+            return value
 
     def save_config_variable(
         self, config_variable_name, value, skip_if_substitution_variable: bool = True
@@ -1167,16 +1153,15 @@ class BaseDataContext(ConfigPeer):
         """
         if datasource_name is None:
             raise ValueError("Datasource names must be a datasource name")
+        datasource = self.get_datasource(datasource_name=datasource_name)
+        if datasource:
+            # remove key until we have a delete method on project_config
+            # self.project_config_with_variables_substituted.datasources[
+            # datasource_name].remove()
+            del self.config["datasources"][datasource_name]
+            del self._cached_datasources[datasource_name]
         else:
-            datasource = self.get_datasource(datasource_name=datasource_name)
-            if datasource:
-                # remove key until we have a delete method on project_config
-                # self.project_config_with_variables_substituted.datasources[
-                # datasource_name].remove()
-                del self.config["datasources"][datasource_name]
-                del self._cached_datasources[datasource_name]
-            else:
-                raise ValueError(f"Datasource {datasource_name} not found")
+            raise ValueError(f"Datasource {datasource_name} not found")
 
     def get_available_data_asset_names(
         self, datasource_names=None, batch_kwargs_generator_names=None
@@ -1286,13 +1271,12 @@ class BaseDataContext(ConfigPeer):
             )
             data_asset_name = kwargs.pop("name")
         datasource_obj = self.get_datasource(datasource)
-        batch_kwargs = datasource_obj.build_batch_kwargs(
+        return datasource_obj.build_batch_kwargs(
             batch_kwargs_generator=batch_kwargs_generator,
             data_asset_name=data_asset_name,
             partition_id=partition_id,
             **kwargs,
         )
-        return batch_kwargs
 
     def _get_batch_v2(
         self,
@@ -1994,10 +1978,9 @@ class BaseDataContext(ConfigPeer):
 
         """
         datasource_obj = self.get_datasource(datasource_name)
-        generator = datasource_obj.add_batch_kwargs_generator(
+        return datasource_obj.add_batch_kwargs_generator(
             name=batch_kwargs_generator_name, class_name=class_name, **kwargs
         )
-        return generator
 
     def set_config(self, project_config: DataContextConfig):
         self._project_config = project_config
@@ -2016,18 +1999,21 @@ class BaseDataContext(ConfigPeer):
         ]:
             config.update({"data_context_root_directory": self.root_directory})
         module_name = "great_expectations.datasource"
-        datasource = instantiate_class_from_config(
+        if datasource := instantiate_class_from_config(
             config=config,
-            runtime_environment={"data_context": self, "concurrency": self.concurrency},
+            runtime_environment={
+                "data_context": self,
+                "concurrency": self.concurrency,
+            },
             config_defaults={"module_name": module_name},
-        )
-        if not datasource:
+        ):
+            return datasource
+        else:
             raise ge_exceptions.ClassInstantiationError(
                 module_name=module_name,
                 package_name=None,
                 class_name=config["class_name"],
             )
-        return datasource
 
     def get_datasource(
         self, datasource_name: str = "default"
@@ -2204,10 +2190,7 @@ class BaseDataContext(ConfigPeer):
             )
             if self.expectations_store.has_key(key) and not overwrite_existing:
                 raise ge_exceptions.DataContextError(
-                    "expectation_suite with GE Cloud ID {} already exists. If you would like to overwrite this "
-                    "expectation_suite, set overwrite_existing=True.".format(
-                        ge_cloud_id
-                    )
+                    f"expectation_suite with GE Cloud ID {ge_cloud_id} already exists. If you would like to overwrite this expectation_suite, set overwrite_existing=True."
                 )
         else:
             key: ExpectationSuiteIdentifier = ExpectationSuiteIdentifier(
@@ -2215,10 +2198,7 @@ class BaseDataContext(ConfigPeer):
             )
             if self.expectations_store.has_key(key) and not overwrite_existing:
                 raise ge_exceptions.DataContextError(
-                    "expectation_suite with name {} already exists. If you would like to overwrite this "
-                    "expectation_suite, set overwrite_existing=True.".format(
-                        expectation_suite_name
-                    )
+                    f"expectation_suite with name {expectation_suite_name} already exists. If you would like to overwrite this expectation_suite, set overwrite_existing=True."
                 )
 
         self.expectations_store.set(key, expectation_suite, **kwargs)
@@ -2249,9 +2229,8 @@ class BaseDataContext(ConfigPeer):
             raise ge_exceptions.DataContextError(
                 "expectation_suite with name {} does not exist."
             )
-        else:
-            self.expectations_store.remove_key(key)
-            return True
+        self.expectations_store.remove_key(key)
+        return True
 
     def get_expectation_suite(
         self,
@@ -2275,15 +2254,13 @@ class BaseDataContext(ConfigPeer):
                 expectation_suite_name=expectation_suite_name
             )
 
-        if self.expectations_store.has_key(key):
-            expectations_schema_dict: dict = self.expectations_store.get(key)
-            # create the ExpectationSuite from constructor
-            return ExpectationSuite(**expectations_schema_dict, data_context=self)
-
-        else:
+        if not self.expectations_store.has_key(key):
             raise ge_exceptions.DataContextError(
                 f"expectation_suite {expectation_suite_name} not found"
             )
+        expectations_schema_dict: dict = self.expectations_store.get(key)
+        # create the ExpectationSuite from constructor
+        return ExpectationSuite(**expectations_schema_dict, data_context=self)
 
     def list_expectation_suite_names(self) -> List[str]:
         """
@@ -2332,10 +2309,7 @@ class BaseDataContext(ConfigPeer):
             )
             if self.expectations_store.has_key(key) and not overwrite_existing:
                 raise ge_exceptions.DataContextError(
-                    "expectation_suite with GE Cloud ID {} already exists. If you would like to overwrite this "
-                    "expectation_suite, set overwrite_existing=True.".format(
-                        ge_cloud_id
-                    )
+                    f"expectation_suite with GE Cloud ID {ge_cloud_id} already exists. If you would like to overwrite this expectation_suite, set overwrite_existing=True."
                 )
         else:
             if expectation_suite_name is None:
@@ -2349,10 +2323,7 @@ class BaseDataContext(ConfigPeer):
                 )
             if self.expectations_store.has_key(key) and not overwrite_existing:
                 raise ge_exceptions.DataContextError(
-                    "expectation_suite with name {} already exists. If you would like to overwrite this "
-                    "expectation_suite, set overwrite_existing=True.".format(
-                        expectation_suite_name
-                    )
+                    f"expectation_suite with name {expectation_suite_name} already exists. If you would like to overwrite this expectation_suite, set overwrite_existing=True."
                 )
 
         self._evaluation_parameter_dependencies_compiled = False
@@ -2387,9 +2358,7 @@ class BaseDataContext(ConfigPeer):
         )
 
         for expectation_suite_dependency, metrics_list in requested_metrics.items():
-            if (expectation_suite_dependency != "*") and (
-                expectation_suite_dependency != expectation_suite_name
-            ):
+            if expectation_suite_dependency not in ["*", expectation_suite_name]:
                 continue
 
             if not isinstance(metrics_list, list):
@@ -2424,8 +2393,7 @@ class BaseDataContext(ConfigPeer):
                     except ge_exceptions.UnavailableMetricError:
                         # This will happen frequently in larger pipelines
                         logger.debug(
-                            "metric {} was requested by another expectation suite but is not available in "
-                            "this validation result.".format(metric_name)
+                            f"metric {metric_name} was requested by another expectation suite but is not available in this validation result."
                         )
 
     def store_validation_result_metrics(
@@ -2517,23 +2485,22 @@ class BaseDataContext(ConfigPeer):
                 if run_id is not None and key.run_id != run_id:
                     continue
                 if (
-                    batch_identifier is not None
-                    and key.batch_identifier != batch_identifier
+                    batch_identifier is None
+                    or key.batch_identifier == batch_identifier
                 ):
-                    continue
-                filtered_key_list.append(key)
+                    filtered_key_list.append(key)
 
             # run_id_set = set([key.run_id for key in filtered_key_list])
-            if len(filtered_key_list) == 0:
+            if not filtered_key_list:
                 logger.warning("No valid run_id values found.")
                 return {}
 
             filtered_key_list = sorted(filtered_key_list, key=lambda x: x.run_id)
 
-            if run_id is None:
-                run_id = filtered_key_list[-1].run_id
-            if batch_identifier is None:
-                batch_identifier = filtered_key_list[-1].batch_identifier
+        if run_id is None:
+            run_id = filtered_key_list[-1].run_id
+        if batch_identifier is None:
+            batch_identifier = filtered_key_list[-1].batch_identifier
 
         key = ValidationResultIdentifier(
             expectation_suite_identifier=ExpectationSuiteIdentifier(
@@ -2604,8 +2571,7 @@ class BaseDataContext(ConfigPeer):
 
         index_page_locator_infos = {}
 
-        sites = self.project_config_with_variables_substituted.data_docs_sites
-        if sites:
+        if sites := self.project_config_with_variables_substituted.data_docs_sites:
             logger.debug("Found data_docs_sites. Building sites...")
 
             for site_name, site_config in sites.items():
@@ -2636,15 +2602,13 @@ class BaseDataContext(ConfigPeer):
                         index_page_locator_infos[
                             site_name
                         ] = site_builder.get_resource_url(only_if_exists=False)
-                    else:
-                        index_page_resource_identifier_tuple = site_builder.build(
-                            resource_identifiers,
-                            build_index=(build_index and not self.ge_cloud_mode),
-                        )
-                        if index_page_resource_identifier_tuple:
-                            index_page_locator_infos[
-                                site_name
-                            ] = index_page_resource_identifier_tuple[0]
+                    elif index_page_resource_identifier_tuple := site_builder.build(
+                        resource_identifiers,
+                        build_index=(build_index and not self.ge_cloud_mode),
+                    ):
+                        index_page_locator_infos[
+                            site_name
+                        ] = index_page_resource_identifier_tuple[0]
 
         else:
             logger.debug("No data_docs_config found. No site(s) built.")
@@ -2675,9 +2639,10 @@ class BaseDataContext(ConfigPeer):
                 )
             return self._clean_data_docs_site(site_name)
 
-        cleaned = []
-        for existing_site_name in data_docs_site_names:
-            cleaned.append(self._clean_data_docs_site(existing_site_name))
+        cleaned = [
+            self._clean_data_docs_site(existing_site_name)
+            for existing_site_name in data_docs_site_names
+        ]
         return all(cleaned)
 
     def _clean_data_docs_site(self, site_name: str) -> bool:
@@ -2745,8 +2710,6 @@ class BaseDataContext(ConfigPeer):
         if not dry_run:
             logger.info(f"Profiling '{datasource_name}' with '{profiler.__name__}'")
 
-        profiling_results = {}
-
         # Build the list of available data asset names (each item a tuple of name and type)
 
         data_asset_names_dict = self.get_available_data_asset_names(datasource_name)
@@ -2764,14 +2727,12 @@ class BaseDataContext(ConfigPeer):
             # if ambiguous, raise an exception
             for name in datasource_data_asset_names_dict.keys():
                 if batch_kwargs_generator_name is not None:
-                    profiling_results = {
+                    return {
                         "success": False,
                         "error": {
                             "code": DataContext.PROFILING_ERROR_CODE_MULTIPLE_BATCH_KWARGS_GENERATORS_FOUND
                         },
                     }
-                    return profiling_results
-
                 if len(datasource_data_asset_names_dict[name]["names"]) > 0:
                     available_data_asset_name_list = datasource_data_asset_names_dict[
                         name
@@ -2779,13 +2740,12 @@ class BaseDataContext(ConfigPeer):
                     batch_kwargs_generator_name = name
 
             if batch_kwargs_generator_name is None:
-                profiling_results = {
+                return {
                     "success": False,
                     "error": {
                         "code": DataContext.PROFILING_ERROR_CODE_NO_BATCH_KWARGS_GENERATORS_FOUND
                     },
                 }
-                return profiling_results
         else:
             # if the generator name is passed as an arg, get this generator's available data asset names
             try:
@@ -2794,9 +2754,7 @@ class BaseDataContext(ConfigPeer):
                 ]["names"]
             except KeyError:
                 raise ge_exceptions.ProfilerError(
-                    "batch kwargs Generator {} not found. Specify the name of a generator configured in this datasource".format(
-                        batch_kwargs_generator_name
-                    )
+                    f"batch kwargs Generator {batch_kwargs_generator_name} not found. Specify the name of a generator configured in this datasource"
                 )
 
         available_data_asset_name_list = sorted(
@@ -2805,20 +2763,17 @@ class BaseDataContext(ConfigPeer):
 
         if len(available_data_asset_name_list) == 0:
             raise ge_exceptions.ProfilerError(
-                "No Data Assets found in Datasource {}. Used batch kwargs generator: {}.".format(
-                    datasource_name, batch_kwargs_generator_name
-                )
+                f"No Data Assets found in Datasource {datasource_name}. Used batch kwargs generator: {batch_kwargs_generator_name}."
             )
         total_data_assets = len(available_data_asset_name_list)
 
         if isinstance(data_assets, list) and len(data_assets) > 0:
-            not_found_data_assets = [
+            if not_found_data_assets := [
                 name
                 for name in data_assets
                 if name not in [da[0] for da in available_data_asset_name_list]
-            ]
-            if len(not_found_data_assets) > 0:
-                profiling_results = {
+            ]:
+                return {
                     "success": False,
                     "error": {
                         "code": DataContext.PROFILING_ERROR_CODE_SPECIFIED_DATA_ASSETS_NOT_FOUND,
@@ -2826,20 +2781,17 @@ class BaseDataContext(ConfigPeer):
                         "data_assets": available_data_asset_name_list,
                     },
                 }
-                return profiling_results
-
             data_assets.sort()
             data_asset_names_to_profiled = data_assets
             total_data_assets = len(available_data_asset_name_list)
             if not dry_run:
                 logger.info(
-                    "Profiling the white-listed data assets: %s, alphabetically."
-                    % (",".join(data_assets))
+                    f'Profiling the white-listed data assets: {",".join(data_asset_names_to_profiled)}, alphabetically.'
                 )
         else:
             if not profile_all_data_assets:
                 if total_data_assets > max_data_assets:
-                    profiling_results = {
+                    return {
                         "success": False,
                         "error": {
                             "code": DataContext.PROFILING_ERROR_CODE_TOO_MANY_DATA_ASSETS,
@@ -2847,8 +2799,6 @@ class BaseDataContext(ConfigPeer):
                             "data_assets": available_data_asset_name_list,
                         },
                     }
-                    return profiling_results
-
             data_asset_names_to_profiled = [
                 name[0] for name in available_data_asset_name_list
             ]
@@ -2863,8 +2813,7 @@ class BaseDataContext(ConfigPeer):
                 % (len(available_data_asset_name_list), batch_kwargs_generator_name)
             )
 
-        profiling_results["success"] = True
-
+        profiling_results = {"success": True}
         if not dry_run:
             profiling_results["results"] = []
             total_columns, total_expectations, total_rows, skipped_data_assets = (
@@ -2896,8 +2845,7 @@ class BaseDataContext(ConfigPeer):
                     logger.warning(err.message)
                 except OSError as err:
                     logger.warning(
-                        "IOError while profiling %s. (Perhaps a loading error?) Skipping."
-                        % name[1]
+                        f"IOError while profiling {name[1]}. (Perhaps a loading error?) Skipping."
                     )
                     logger.debug(str(err))
                     skipped_data_assets += 1
@@ -2968,8 +2916,8 @@ class BaseDataContext(ConfigPeer):
             When success = False, the error details are under "error" key
         """
 
-        assert not (run_id and run_name) and not (
-            run_id and run_time
+        assert (not run_id or not run_name) and (
+            not run_id or not run_time
         ), "Please provide either a run_id or run_name and/or run_time."
         if isinstance(run_id, str) and not run_name:
             # deprecated-v0.11.0
@@ -3006,20 +2954,14 @@ class BaseDataContext(ConfigPeer):
                 )
             except ge_exceptions.BatchKwargsError:
                 raise ge_exceptions.ProfilerError(
-                    "Unable to build batch_kwargs for datasource {}, using batch kwargs generator {} for name {}".format(
-                        datasource_name, batch_kwargs_generator_name, data_asset_name
-                    )
+                    f"Unable to build batch_kwargs for datasource {datasource_name}, using batch kwargs generator {batch_kwargs_generator_name} for name {data_asset_name}"
                 )
             except ValueError:
                 raise ge_exceptions.ProfilerError(
-                    "Unable to find datasource {} or batch kwargs generator {}.".format(
-                        datasource_name, batch_kwargs_generator_name
-                    )
+                    f"Unable to find datasource {datasource_name} or batch kwargs generator {batch_kwargs_generator_name}."
                 )
         else:
             batch_kwargs.update(additional_batch_kwargs)
-
-        profiling_results = {"success": False, "results": []}
 
         total_columns, total_expectations, total_rows, skipped_data_assets = 0, 0, 0, 0
         total_start_time = datetime.datetime.now()
@@ -3030,25 +2972,11 @@ class BaseDataContext(ConfigPeer):
         start_time = datetime.datetime.now()
 
         if expectation_suite_name is None:
-            if batch_kwargs_generator_name is None and data_asset_name is None:
-                expectation_suite_name = (
-                    datasource_name
-                    + "."
-                    + profiler.__name__
-                    + "."
-                    + BatchKwargs(batch_kwargs).to_id()
-                )
-            else:
-                expectation_suite_name = (
-                    datasource_name
-                    + "."
-                    + batch_kwargs_generator_name
-                    + "."
-                    + data_asset_name
-                    + "."
-                    + profiler.__name__
-                )
-
+            expectation_suite_name = (
+                f"{datasource_name}.{profiler.__name__}.{BatchKwargs(batch_kwargs).to_id()}"
+                if batch_kwargs_generator_name is None and data_asset_name is None
+                else f"{datasource_name}.{batch_kwargs_generator_name}.{data_asset_name}.{profiler.__name__}"
+            )
         self.create_expectation_suite(
             expectation_suite_name=expectation_suite_name, overwrite_existing=True
         )
@@ -3061,8 +2989,7 @@ class BaseDataContext(ConfigPeer):
 
         if not profiler.validate(batch):
             raise ge_exceptions.ProfilerError(
-                "batch '%s' is not a valid batch for the '%s' profiler"
-                % (name, profiler.__name__)
+                f"batch '{name}' is not a valid batch for the '{profiler.__name__}' profiler"
             )
 
         # Note: This logic is specific to DatasetProfilers, which profile a single batch. Multi-batch profilers
@@ -3070,6 +2997,7 @@ class BaseDataContext(ConfigPeer):
         expectation_suite, validation_results = profiler.profile(
             batch, run_id=run_id, profiler_configuration=profiler_configuration
         )
+        profiling_results = {"success": False, "results": []}
         profiling_results["results"].append((expectation_suite, validation_results))
 
         validation_ref = self.validations_store.set(
@@ -4033,11 +3961,10 @@ class DataContext(BaseDataContext):
     def all_uncommitted_directories_exist(cls, ge_dir):
         """Check if all uncommitted directories exist."""
         uncommitted_dir = os.path.join(ge_dir, cls.GE_UNCOMMITTED_DIR)
-        for directory in cls.UNCOMMITTED_DIRECTORIES:
-            if not os.path.isdir(os.path.join(uncommitted_dir, directory)):
-                return False
-
-        return True
+        return all(
+            os.path.isdir(os.path.join(uncommitted_dir, directory))
+            for directory in cls.UNCOMMITTED_DIRECTORIES
+        )
 
     @classmethod
     def config_variables_yml_exist(cls, ge_dir):
@@ -4194,11 +4121,9 @@ class DataContext(BaseDataContext):
             ge_cloud_organization_id=ge_cloud_organization_id,
         )
 
-        missing_keys = []
-        for key, val in ge_cloud_config_dict.items():
-            if not val:
-                missing_keys.append(key)
-        if len(missing_keys) > 0:
+        if missing_keys := [
+            key for key, val in ge_cloud_config_dict.items() if not val
+        ]:
             missing_keys_str = [f'"{key}"' for key in missing_keys]
             global_config_path_str = [
                 f'"{path}"' for path in super().GLOBAL_CONFIG_PATHS
@@ -4279,15 +4204,12 @@ class DataContext(BaseDataContext):
 
         :return: the configuration object retrieved from the Cloud API
         """
-        ge_cloud_url = (
-            self.ge_cloud_config.base_url
-            + f"/organizations/{self.ge_cloud_config.organization_id}/data-context-configuration"
-        )
         auth_headers = {
             "Content-Type": "application/vnd.api+json",
             "Authorization": f"Bearer {self.ge_cloud_config.access_token}",
         }
 
+        ge_cloud_url = f"{self.ge_cloud_config.base_url}/organizations/{self.ge_cloud_config.organization_id}/data-context-configuration"
         response = requests.get(ge_cloud_url, headers=auth_headers)
         if response.status_code != 200:
             raise ge_exceptions.GeCloudError(

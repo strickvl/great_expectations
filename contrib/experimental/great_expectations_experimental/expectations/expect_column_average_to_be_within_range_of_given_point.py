@@ -40,9 +40,7 @@ class ColumnCoordinatesDistance(ColumnAggregateMetricProvider):
         avg_lat = mean([point[0] for point in column])
         avg_lon = mean([point[1] for point in column])
 
-        distance = cls.fcc_projection((avg_lat, avg_lon), center_point)
-
-        return distance
+        return cls.fcc_projection((avg_lat, avg_lon), center_point)
 
     @staticmethod
     def fcc_projection(loc1, loc2):
@@ -60,9 +58,7 @@ class ColumnCoordinatesDistance(ColumnAggregateMetricProvider):
             + (0.00012 * cos(5 * mean_lat))
         )
 
-        distance = sqrt((k1 * delta_lat) ** 2 + (k2 * delta_lon) ** 2)
-
-        return distance
+        return sqrt((k1 * delta_lat) ** 2 + (k2 * delta_lon) ** 2)
 
 
 # This class defines the Expectation itself

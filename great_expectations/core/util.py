@@ -88,18 +88,12 @@ def nested_update(
             s1 = d.get(k, set())
             s2 = v or set()
 
-            if concat_lists:
-                d[k] = s1 | s2
-            else:
-                d[k] = s2
+            d[k] = s1 | s2 if concat_lists else s2
         elif isinstance(v, list) or (k in d and isinstance(d[k], list)):
             l1 = d.get(k, [])
             l2 = v or []
             if concat_lists:
-                if dedup:
-                    d[k] = list(set(l1 + l2))
-                else:
-                    d[k] = l1 + l2
+                d[k] = list(set(l1 + l2)) if dedup else l1 + l2
             else:
                 d[k] = l2
         else:
@@ -110,12 +104,7 @@ def nested_update(
 def in_jupyter_notebook():
     try:
         shell = get_ipython().__class__.__name__
-        if shell == "ZMQInteractiveShell":
-            return True  # Jupyter notebook or qtconsole
-        elif shell == "TerminalInteractiveShell":
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
+        return shell == "ZMQInteractiveShell"
     except NameError:
         return False  # Probably standard Python interpreter
 
@@ -155,20 +144,9 @@ def convert_to_json_serializable(data):
         return data
 
     if isinstance(data, dict):
-        new_dict = {}
-        for key in data:
-            # A pandas index can be numeric, and a dict key can be numeric, but a json key must be a string
-            new_dict[str(key)] = convert_to_json_serializable(data[key])
-
-        return new_dict
-
+        return {str(key): convert_to_json_serializable(data[key]) for key in data}
     if isinstance(data, (list, tuple, set)):
-        new_list = []
-        for val in data:
-            new_list.append(convert_to_json_serializable(val))
-
-        return new_list
-
+        return [convert_to_json_serializable(val) for val in data]
     if isinstance(data, (np.ndarray, pd.Index)):
         # test_obj[key] = test_obj[key].tolist()
         # If we have an array or index, convert it first to a list--causing coercion to float--and then round
@@ -210,11 +188,8 @@ def convert_to_json_serializable(data):
             # pd.isna is functionally vectorized, but we only want to apply this to single objects
             # Hence, why we test for `not isinstance(list)`
             return None
-    except TypeError:
+    except (TypeError, ValueError):
         pass
-    except ValueError:
-        pass
-
     if isinstance(data, pd.Series):
         # Converting a series is tricky since the index may not be a string, but all json
         # keys must be strings. So, we use a very ugly serialization strategy
@@ -321,11 +296,8 @@ def ensure_json_serializable(data):
             # pd.isna is functionally vectorized, but we only want to apply this to single objects
             # Hence, why we test for `not isinstance(list))`
             return
-    except TypeError:
+    except (TypeError, ValueError):
         pass
-    except ValueError:
-        pass
-
     if isinstance(data, pd.Series):
         # Converting a series is tricky since the index may not be a string, but all json
         # keys must be strings. So, we use a very ugly serialization strategy
@@ -358,8 +330,7 @@ def ensure_json_serializable(data):
 
     else:
         raise InvalidExpectationConfigurationError(
-            "%s is of type %s which cannot be serialized to json"
-            % (str(data), type(data).__name__)
+            f"{str(data)} is of type {type(data).__name__} which cannot be serialized to json"
         )
 
 
@@ -376,7 +347,7 @@ def substitute_all_strftime_format_strings(
     """
 
     datetime_obj: datetime.datetime = datetime_obj or datetime.datetime.now()
-    if isinstance(data, dict) or isinstance(data, OrderedDict):
+    if isinstance(data, (dict, OrderedDict)):
         return {
             k: substitute_all_strftime_format_strings(v, datetime_obj=datetime_obj)
             for k, v in data.items()
@@ -415,7 +386,7 @@ def parse_string_to_datetime(
     if not datetime_format_string:
         return dateutil.parser.parse(timestr=datetime_string)
 
-    if datetime_format_string and not isinstance(datetime_format_string, str):
+    if not isinstance(datetime_format_string, str):
         raise ge_exceptions.SorterError(
             f"""DateTime parsing formatter "datetime_format_string" must have string type (actual type is
 "{str(type(datetime_format_string))}").
@@ -470,7 +441,6 @@ class AzureUrl:
             self._protocol = search.group(1)
             self._account_name = search.group(2)
             self._container = search.group(3)
-            self._blob = search.group(4)
         else:
             search = re.search(AzureUrl.AZURE_BLOB_STORAGE_WASBS_URL_REGEX_PATTERN, url)
             assert (
@@ -479,7 +449,8 @@ class AzureUrl:
             self._protocol = search.group(1)
             self._container = search.group(2)
             self._account_name = search.group(3)
-            self._blob = search.group(4)
+
+        self._blob = search.group(4)
 
     @property
     def protocol(self):
@@ -579,9 +550,7 @@ class S3Url:
         """
         splits = self._parsed.path.rsplit(".", 1)
         _suffix = splits[-1]
-        if len(_suffix) > 0 and len(splits) > 1:
-            return str(_suffix)
-        return None
+        return str(_suffix) if len(_suffix) > 0 and len(splits) > 1 else None
 
     @property
     def url(self):
@@ -597,16 +566,9 @@ class DBFSPath:
     def convert_to_protocol_version(path: str) -> str:
         if re.search(r"^\/dbfs", path):
             candidate = path.replace("/dbfs", "dbfs:", 1)
-            if candidate == "dbfs:":
-                # Must add trailing slash
-                return "dbfs:/"
-            else:
-                return candidate
+            return "dbfs:/" if candidate == "dbfs:" else candidate
         elif re.search(r"^dbfs:", path):
-            if path == "dbfs:":
-                # Must add trailing slash
-                return "dbfs:/"
-            return path
+            return "dbfs:/" if path == "dbfs:" else path
         else:
             raise ValueError("Path should start with either /dbfs or dbfs:")
 
@@ -644,10 +606,7 @@ def get_or_create_spark_application(
             "Unable to load pyspark; install optional spark dependency for support."
         )
 
-    if spark_config is None:
-        spark_config = {}
-    else:
-        spark_config = copy.deepcopy(spark_config)
+    spark_config = {} if spark_config is None else copy.deepcopy(spark_config)
     name: Optional[str] = spark_config.get("spark.app.name")
     if not name:
         name = "default_great_expectations_spark_application"
@@ -706,15 +665,10 @@ def get_or_create_spark_session(
 
     spark_session: Optional[SparkSession]
     try:
-        if spark_config is None:
-            spark_config = {}
-        else:
-            spark_config = copy.deepcopy(spark_config)
-
+        spark_config = {} if spark_config is None else copy.deepcopy(spark_config)
         builder = SparkSession.builder
 
-        app_name: Optional[str] = spark_config.get("spark.app.name")
-        if app_name:
+        if app_name := spark_config.get("spark.app.name"):
             builder.appName(app_name)
         for k, v in spark_config.items():
             if k != "spark.app.name":
@@ -740,18 +694,13 @@ def spark_restart_required(
     if in_databricks():
         return False
 
-    current_spark_config_dict: dict = {k: v for (k, v) in current_spark_config}
+    current_spark_config_dict: dict = dict(current_spark_config)
     if desired_spark_config.get("spark.app.name") != current_spark_config_dict.get(
         "spark.app.name"
     ):
         return True
 
-    if not {(k, v) for k, v in desired_spark_config.items()}.issubset(
-        current_spark_config
-    ):
-        return True
-
-    return False
+    return not set(desired_spark_config.items()).issubset(current_spark_config)
 
 
 def get_sql_dialect_floating_point_infinity_value(
@@ -759,12 +708,6 @@ def get_sql_dialect_floating_point_infinity_value(
 ) -> float:
     res: Optional[dict] = SCHEMAS.get(schema)
     if res is None:
-        if negative:
-            return -np.inf
-        else:
-            return np.inf
+        return -np.inf if negative else np.inf
     else:
-        if negative:
-            return res["NegativeInfinity"]
-        else:
-            return res["PositiveInfinity"]
+        return res["NegativeInfinity"] if negative else res["PositiveInfinity"]
